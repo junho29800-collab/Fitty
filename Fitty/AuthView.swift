@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// First-launch gate. Login / Sign up before onboarding or Home.
-/// Google and Apple are visible but disabled.
+/// Google and Apple are visible but disabled ("Coming soon") — no fake OAuth.
 struct AuthView: View {
     @EnvironmentObject var auth: AuthStore
     @State private var mode: Mode = .login
