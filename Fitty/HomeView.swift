@@ -6,6 +6,7 @@ struct HomeView: View {
     @Binding var path: [FittyRoute]
 
     private var wardrobeEmpty: Bool { store.garments.isEmpty }
+    private var canTryOn: Bool { store.selected != nil && store.selectedFrontImage != nil }
 
     var body: some View {
         GeometryReader { geo in
@@ -38,14 +39,14 @@ struct HomeView: View {
 
                         VStack(alignment: .leading, spacing: 6) {
                             Button(L10n.t("home.tryOn")) {
-                                guard !wardrobeEmpty else { return }
+                                guard canTryOn else { return }
                                 path.append(.tryOn)
                             }
                             .buttonStyle(BoxyButtonStyle(kind: .secondary))
-                            .disabled(wardrobeEmpty)
-                            .opacity(wardrobeEmpty ? 0.4 : 1)
-                            .accessibilityLabel(wardrobeEmpty ? L10n.t("a11y.tryOnEmpty") : L10n.t("a11y.tryOn"))
-                            .accessibilityHint(wardrobeEmpty ? L10n.t("home.tryOnEmpty") : "")
+                            .disabled(!canTryOn)
+                            .opacity(canTryOn ? 1 : 0.4)
+                            .accessibilityLabel(canTryOn ? L10n.t("a11y.tryOn") : L10n.t("a11y.tryOnEmpty"))
+                            .accessibilityHint(canTryOn ? "" : L10n.t("home.tryOnEmpty"))
 
                             if wardrobeEmpty {
                                 Text(L10n.t("home.tryOnEmpty"))

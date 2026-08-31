@@ -5,6 +5,24 @@ enum ImageIOSupport {
     static let maxDimension: CGFloat = 1600
     static let maxBytes = 1_400_000
 
+    enum Encoded {
+        case png(Data)
+        case jpeg(Data)
+
+        var data: Data {
+            switch self {
+            case .png(let d), .jpeg(let d): return d
+            }
+        }
+
+        var fileExtension: String {
+            switch self {
+            case .png: return "png"
+            case .jpeg: return "jpg"
+            }
+        }
+    }
+
     /// GPU albedo cap. iPhone 1024, iPad 2048. Keeps aspect.
     static var textureMaxDimension: CGFloat {
         DeviceProfile.shared.textureMaxDimension
@@ -14,21 +32,49 @@ enum ImageIOSupport {
         scaled(image, maxDimension: textureMaxDimension)
     }
 
-    static func compressedPNG(_ image: UIImage) -> Data? {
-        let scaled = scaled(image, maxDimension: maxDimension)
-        if let png = scaled.pngData(), png.count <= maxBytes {
-            return png
+    static func hasAlpha(_ image: UIImage) -> Bool {
+        guard let info = image.cgImage?.alphaInfo else { return false }
+        switch info {
+        case .none, .noneSkipLast, .noneSkipFirst: return false
+        default: return true
         }
-        // Fall back to JPEG when PNG is huge (photos from the picker). Alpha is lost;
-        // isolation already flattened the interesting pixels onto transparency-or-cream.
+    }
+
+    /// PNG when the image has a Vision mask (alpha). JPEG only for opaque photos,
+    /// and never written under a `.png` name — callers use `fileExtension`.
+    static func compressed(_ image: UIImage, keepAlpha: Bool) -> Encoded? {
+        let preserveAlpha = keepAlpha || hasAlpha(image)
+        var dim = maxDimension
+        var current = scaled(image, maxDimension: dim)
+        if preserveAlpha {
+            while dim >= 256 {
+                if let png = current.pngData(), png.count <= maxBytes {
+                    return .png(png)
+                }
+                dim = floor(dim * 0.75)
+                current = scaled(image, maxDimension: max(256, dim))
+            }
+            return current.pngData().map { .png($0) }
+        }
+        if let png = current.pngData(), png.count <= maxBytes {
+            return .png(png)
+        }
         var quality: CGFloat = 0.82
         while quality >= 0.4 {
-            if let jpeg = scaled.jpegData(compressionQuality: quality), jpeg.count <= maxBytes {
-                return jpeg
+            if let jpeg = current.jpegData(compressionQuality: quality), jpeg.count <= maxBytes {
+                return .jpeg(jpeg)
             }
             quality -= 0.12
         }
-        return scaled.jpegData(compressionQuality: 0.4) ?? scaled.pngData()
+        if let jpeg = current.jpegData(compressionQuality: 0.4) {
+            return .jpeg(jpeg)
+        }
+        return current.pngData().map { .png($0) }
+    }
+
+    /// Snapshots stay PNG so the AR view keeps its alpha.
+    static func compressedPNG(_ image: UIImage) -> Data? {
+        compressed(image, keepAlpha: true)?.data
     }
 
     static func scaled(_ image: UIImage, maxDimension: CGFloat) -> UIImage {
