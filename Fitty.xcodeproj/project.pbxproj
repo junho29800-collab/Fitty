@@ -30,6 +30,17 @@
 		A1F170000000000000000081 /* Vision.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000080 /* Vision.framework */; };
 		A1F170000000000000000083 /* PhotosUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000082 /* PhotosUI.framework */; };
 		A1F170000000000000000085 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000084 /* AVFoundation.framework */; };
+		A1F1700000000000000000A0 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000090 /* AppSettings.swift */; };
+		A1F1700000000000000000A1 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000091 /* L10n.swift */; };
+		A1F1700000000000000000A2 /* WardrobeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000092 /* WardrobeView.swift */; };
+		A1F1700000000000000000A3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000093 /* SettingsView.swift */; };
+		A1F1700000000000000000A4 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000094 /* OnboardingView.swift */; };
+		A1F1700000000000000000A5 /* ToastCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000095 /* ToastCenter.swift */; };
+		A1F1700000000000000000A6 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000096 /* Haptics.swift */; };
+		A1F1700000000000000000A7 /* ImageIOSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000097 /* ImageIOSupport.swift */; };
+		A1F1700000000000000000A8 /* ClipRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F170000000000000000098 /* ClipRecorder.swift */; };
+		A1F1700000000000000000C1 /* ReplayKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A1F1700000000000000000C0 /* ReplayKit.framework */; };
+		A1F1700000000000000000C5 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A1F1700000000000000000C4 /* Localizable.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +72,18 @@
 		A1F170000000000000000080 /* Vision.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Vision.framework; path = System/Library/Frameworks/Vision.framework; sourceTree = SDKROOT; };
 		A1F170000000000000000082 /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
 		A1F170000000000000000084 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		A1F170000000000000000090 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		A1F170000000000000000091 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		A1F170000000000000000092 /* WardrobeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeView.swift; sourceTree = "<group>"; };
+		A1F170000000000000000093 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A1F170000000000000000094 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		A1F170000000000000000095 /* ToastCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastCenter.swift; sourceTree = "<group>"; };
+		A1F170000000000000000096 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		A1F170000000000000000097 /* ImageIOSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageIOSupport.swift; sourceTree = "<group>"; };
+		A1F170000000000000000098 /* ClipRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipRecorder.swift; sourceTree = "<group>"; };
+		A1F1700000000000000000C0 /* ReplayKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ReplayKit.framework; path = System/Library/Frameworks/ReplayKit.framework; sourceTree = SDKROOT; };
+		A1F1700000000000000000C2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A1F1700000000000000000C3 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,6 +97,7 @@
 				A1F170000000000000000081 /* Vision.framework in Frameworks */,
 				A1F170000000000000000083 /* PhotosUI.framework in Frameworks */,
 				A1F170000000000000000085 /* AVFoundation.framework in Frameworks */,
+				A1F1700000000000000000C1 /* ReplayKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -114,6 +138,16 @@
 				A1F170000000000000000064 /* GarmentIsolator.swift */,
 				A1F170000000000000000065 /* PhotoPicker.swift */,
 				A1F170000000000000000066 /* CameraCapture.swift */,
+				A1F170000000000000000090 /* AppSettings.swift */,
+				A1F170000000000000000091 /* L10n.swift */,
+				A1F170000000000000000092 /* WardrobeView.swift */,
+				A1F170000000000000000093 /* SettingsView.swift */,
+				A1F170000000000000000094 /* OnboardingView.swift */,
+				A1F170000000000000000095 /* ToastCenter.swift */,
+				A1F170000000000000000096 /* Haptics.swift */,
+				A1F170000000000000000097 /* ImageIOSupport.swift */,
+				A1F170000000000000000098 /* ClipRecorder.swift */,
+				A1F1700000000000000000C4 /* Localizable.strings */,
 				A1F17000000000000000000A /* Physics */,
 				A1F170000000000000000020 /* Assets.xcassets */,
 				A1F170000000000000000021 /* Info.plist */,
@@ -142,11 +176,25 @@
 				A1F170000000000000000080 /* Vision.framework */,
 				A1F170000000000000000082 /* PhotosUI.framework */,
 				A1F170000000000000000084 /* AVFoundation.framework */,
+				A1F1700000000000000000C0 /* ReplayKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
+
+
+/* Begin PBXVariantGroup section */
+		A1F1700000000000000000C4 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A1F1700000000000000000C2 /* en */,
+				A1F1700000000000000000C3 /* ko */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXNativeTarget section */
 		A1F170000000000000000002 /* Fitty */ = {
@@ -189,6 +237,7 @@
 			knownRegions = (
 				en,
 				Base,
+				ko,
 			);
 			mainGroup = A1F170000000000000000007;
 			productRefGroup = A1F170000000000000000008 /* Products */;
@@ -206,6 +255,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1F170000000000000000049 /* Assets.xcassets in Resources */,
+				A1F1700000000000000000C5 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -232,6 +282,15 @@
 				A1F170000000000000000074 /* GarmentIsolator.swift in Sources */,
 				A1F170000000000000000075 /* PhotoPicker.swift in Sources */,
 				A1F170000000000000000076 /* CameraCapture.swift in Sources */,
+				A1F1700000000000000000A0 /* AppSettings.swift in Sources */,
+				A1F1700000000000000000A1 /* L10n.swift in Sources */,
+				A1F1700000000000000000A2 /* WardrobeView.swift in Sources */,
+				A1F1700000000000000000A3 /* SettingsView.swift in Sources */,
+				A1F1700000000000000000A4 /* OnboardingView.swift in Sources */,
+				A1F1700000000000000000A5 /* ToastCenter.swift in Sources */,
+				A1F1700000000000000000A6 /* Haptics.swift in Sources */,
+				A1F1700000000000000000A7 /* ImageIOSupport.swift in Sources */,
+				A1F1700000000000000000A8 /* ClipRecorder.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -384,7 +443,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Fitty uses the camera to scan a piece of clothing and to capture your body in AR so the garment can drape on you in real time.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = NO;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -392,7 +451,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.junholee.Fitty;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -428,7 +487,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Fitty uses the camera to scan a piece of clothing and to capture your body in AR so the garment can drape on you in real time.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = NO;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -436,7 +495,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.junholee.Fitty;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
