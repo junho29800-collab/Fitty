@@ -8,15 +8,19 @@ import UIKit
 /// AR session survives SwiftUI redraws.
 struct ARViewController: UIViewControllerRepresentable {
     @ObservedObject var status: SimulationStatus
+    var garmentImage: UIImage?
+    var garmentAspect: Float
 
     func makeUIViewController(context: Context) -> ARClothHostController {
         let host = ARClothHostController()
         host.status = status
+        host.setGarment(image: garmentImage, aspect: garmentAspect)
         return host
     }
 
     func updateUIViewController(_ uiViewController: ARClothHostController, context: Context) {
         uiViewController.status = status
+        uiViewController.setGarment(image: garmentImage, aspect: garmentAspect)
     }
 }
 
@@ -38,6 +42,8 @@ final class ARClothHostController: UIViewController, ARSessionDelegate {
     private var debugTorso: BodyCapsuleRig.TorsoHandles?
     private var debugCapsules: [BodyCapsule] = []
     private var debugCamera = SIMD3<Float>(0, 1.4, 0.8)
+    private var lastAppliedImage: UIImage?
+    private var lastAppliedAspect: Float = -1
 
     override func loadView() {
         view = arView
@@ -72,6 +78,21 @@ final class ARClothHostController: UIViewController, ARSessionDelegate {
         arView.session.pause()
     }
 
+    /// Swap the cloth albedo without allocating a new entity. Aspect only re-inits
+    /// the PBD sheet when it actually changes, so SwiftUI redraws are cheap.
+    func setGarment(image: UIImage?, aspect: Float) {
+        let imageChanged = lastAppliedImage !== image
+        let aspectChanged = abs(lastAppliedAspect - aspect) > 1e-4
+        if !imageChanged && !aspectChanged { return }
+        lastAppliedImage = image
+        lastAppliedAspect = aspect
+        simulation.setPhotoAspect(aspect)
+        simulation.meshEntity.applyTexture(image)
+        if aspectChanged && aspect > 0 {
+            simulation.requestGarmentReset()
+        }
+    }
+
     private func startSession() {
 #if targetEnvironment(simulator)
         startDebugScene(reason: .simulator)
@@ -94,7 +115,8 @@ final class ARClothHostController: UIViewController, ARSessionDelegate {
         usingDebugRig = true
         didPlaceOnBody = true
         arView.cameraMode = .nonAR
-        arView.environment.background = .color(UIColor(white: 0.12, alpha: 1))
+        // Warm studio, not neon — cloth albedo has to read against it.
+        arView.environment.background = .color(UIColor(red: 0.22, green: 0.20, blue: 0.16, alpha: 1))
 
         let (capsules, torso) = BodyCapsuleRig.tPoseStanding(at: SIMD3(0, 0, -2))
         debugCapsules = capsules
