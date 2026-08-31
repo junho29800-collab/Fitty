@@ -106,6 +106,12 @@ public:
     // Packed capsules: 7 floats each (ax,ay,az, bx,by,bz, radius). Copied internally.
     void setCapsules(const float* packed, int count);
 
+    // Optional width/height of the isolated garment photo. <= 0 keeps body-only sizing.
+    // A wide shirt (aspect > 1) grows across the shoulders; a long tunic grows toward the hips.
+    // Clamped so the patch stays within 1.6× the skeleton-fitted size. Call before initializeGarment.
+    void setPhotoAspect(float widthOverHeight);
+    float photoAspect() const { return photoAspect_; }
+
     // Place a rectangular garment patch spanning shoulders → hips, offset slightly along
     // the chest-forward axis so it starts in front of the torso and drapes under gravity
     // + collision rather than spawning inside the body. Top-row particles become kinematic
@@ -178,6 +184,7 @@ private:
     Vec3 garmentForward_{0.f, 0.f, 1.f};
     Vec3 preferToward_{0.f, 1.5f, 0.f};
     float garmentHalfWidth_ = 0.2f;
+    float photoAspect_ = 0.f;
     bool garmentReady_ = false;
 };
 
