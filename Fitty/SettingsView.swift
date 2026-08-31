@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var device: DeviceProfile
+    @EnvironmentObject var auth: AuthStore
 
     var body: some View {
         ZStack {
@@ -14,6 +15,7 @@ struct SettingsView: View {
                     prefsPanel
                     heightPanel
                     resetPanel
+                    logoutPanel
                     Text(L10n.t("settings.version") + " " + settings.appVersion)
                         .font(.system(.footnote, design: .default))
                         .foregroundStyle(FittyTheme.mutedInk)
@@ -155,6 +157,16 @@ struct SettingsView: View {
             }
             .buttonStyle(BoxyButtonStyle(kind: .secondary))
             .accessibilityLabel(L10n.t("settings.resetOnboard"))
+        }
+    }
+
+    private var logoutPanel: some View {
+        BoxyPanel {
+            Button(L10n.t("settings.logout")) {
+                auth.logOut()
+            }
+            .buttonStyle(BoxyButtonStyle(kind: .secondary))
+            .accessibilityLabel(L10n.t("settings.logout"))
         }
     }
 
