@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import SwiftUI
+import UIKit
 
 /// Fabric presets drive C++ mass/damping/stretch/shear/bend/friction/XPBD α
 /// AND Swift PBR roughness/metallic. Cotton is the default.
@@ -127,7 +128,7 @@ enum AppUnits: String, CaseIterable, Identifiable {
 }
 
 /// Persisted settings + last try-on choices. Survive cold start via UserDefaults.
-/// No accounts, no iCloud.
+/// Local auth lives in AuthStore/Keychain; settings themselves are UserDefaults, no iCloud.
 final class AppSettings: ObservableObject {
     static let shared = AppSettings()
 
@@ -210,7 +211,8 @@ final class AppSettings: ObservableObject {
         func str(_ k: String, _ fallback: String) -> String {
             d.string(forKey: k) ?? fallback
         }
-        quality = SimQuality(rawValue: str("fitty.quality", "med")) ?? .med
+        let fallbackQ = UIDevice.current.userInterfaceIdiom == .phone ? "low" : "med"
+        quality = SimQuality(rawValue: str("fitty.quality", fallbackQ)) ?? (fallbackQ == "low" ? .low : .med)
         hapticsEnabled = d.object(forKey: "fitty.haptics") as? Bool ?? true
         units = AppUnits(rawValue: str("fitty.units", "centimeters")) ?? .centimeters
         language = AppLanguage(rawValue: str("fitty.language", "device")) ?? .device
