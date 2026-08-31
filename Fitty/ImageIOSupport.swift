@@ -5,6 +5,15 @@ enum ImageIOSupport {
     static let maxDimension: CGFloat = 1600
     static let maxBytes = 1_400_000
 
+    /// GPU albedo cap. iPhone 1024, iPad 2048. Keeps aspect.
+    static var textureMaxDimension: CGFloat {
+        DeviceProfile.shared.textureMaxDimension
+    }
+
+    static func cappedForTexture(_ image: UIImage) -> UIImage {
+        scaled(image, maxDimension: textureMaxDimension)
+    }
+
     static func compressedPNG(_ image: UIImage) -> Data? {
         let scaled = scaled(image, maxDimension: maxDimension)
         if let png = scaled.pngData(), png.count <= maxBytes {

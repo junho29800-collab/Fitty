@@ -20,6 +20,10 @@ final class ClipRecorder: NSObject, RPPreviewViewControllerDelegate, ObservableO
     }
 
     func start(from presenter: UIViewController) {
+        if DeviceProfile.shared.skipReplayKit {
+            ToastCenter.shared.show(L10n.t("tryOn.recordCooling"))
+            return
+        }
         self.presenter = presenter
         let rec = RPScreenRecorder.shared()
         rec.isMicrophoneEnabled = false
