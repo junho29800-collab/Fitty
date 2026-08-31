@@ -20,6 +20,9 @@ struct ClothVertex {
 /// * **iOS 17** — `MeshDescriptor` + `MeshResource.generate(from:)`. There is no
 ///   public mapped-buffer mesh on 17, so the resource is rebuilt on upload. That
 ///   path is correct but allocates; it exists so the project still deploys to 17.
+///
+/// Texture: `applyTexture(_:)` swaps `PhysicallyBasedMaterial.baseColor` on the
+/// existing `ModelEntity`. UVs are u across columns, v down rows (shoulder → hip).
 final class ClothMeshEntity: Entity {
 
     private let gridWidth: Int
@@ -52,7 +55,7 @@ final class ClothMeshEntity: Entity {
         // Cool woven cotton: mostly dielectric, mid roughness so folds read under
         // the directional light without turning into a mirror.
         material.baseColor = .init(tint: UIColor(red: 0.18, green: 0.38, blue: 0.78, alpha: 1))
-        material.roughness = .init(floatLiteral: 0.48)
+        material.roughness = .init(floatLiteral: 0.50)
         material.metallic = .init(floatLiteral: 0.04)
         material.blending = .transparent(opacity: .init(floatLiteral: 0.94))
         material.faceCulling = .none // garment is a thin sheet; both sides must render
@@ -84,6 +87,37 @@ final class ClothMeshEntity: Entity {
 
     @MainActor required init() {
         fatalError("ClothMeshEntity.init() is unused — call init(width:height:indices:)")
+    }
+
+    /// Map a scanned garment photo onto the existing cloth mesh. Does not allocate a
+    /// new entity. `nil` restores the woven default tint. Alpha in a subject-lifted
+    /// PNG drives opacity so the table background stays gone.
+    func applyTexture(_ image: UIImage?) {
+        pbr.roughness = .init(floatLiteral: 0.50)
+        pbr.metallic = .init(floatLiteral: 0.04)
+        pbr.faceCulling = .none
+
+        if let image, let cg = image.cgImage {
+            let options = TextureResource.CreateOptions(semantic: .color)
+            do {
+                let texture = try TextureResource.generate(from: cg,
+                                                           withName: "fitty.garment.front",
+                                                           options: options)
+                let param = MaterialParameters.Texture(texture)
+                pbr.baseColor = .init(texture: param, tint: .white)
+                pbr.blending = .transparent(opacity: .init(scale: 1.0, texture: param))
+            } catch {
+                // Keep the previous material if the SDK rejects the CGImage.
+            }
+        } else {
+            pbr.baseColor = .init(tint: UIColor(red: 0.18, green: 0.38, blue: 0.78, alpha: 1))
+            pbr.blending = .transparent(opacity: .init(floatLiteral: 0.94))
+        }
+
+        if var modelComp = model.model {
+            modelComp.materials = [pbr]
+            model.model = modelComp
+        }
     }
 
     @available(iOS 18.0, *)
