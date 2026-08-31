@@ -34,6 +34,14 @@ fitty::Vec3 load3(const float *p) {
     }
 }
 
+- (void)setPhotoAspect:(float)aspect {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setPhotoAspect(aspect);
+    } catch (...) {
+    }
+}
+
 - (void)initializeGarmentWithLeftShoulder:(const float *)leftShoulder
                             rightShoulder:(const float *)rightShoulder
                                   leftHip:(const float *)leftHip

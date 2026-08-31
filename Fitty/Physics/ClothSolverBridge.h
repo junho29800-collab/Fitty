@@ -26,6 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// is the number of capsules, not the number of floats.
 - (void)updateCapsulesWithData:(const float *)data count:(int)count NS_SWIFT_NAME(updateCapsules(data:count:));
 
+/// Width/height of the isolated garment photo. <= 0 keeps body-only sizing.
+/// Call before initializeGarment so the next placement can widen/lengthen the sheet.
+- (void)setPhotoAspect:(float)aspect NS_SWIFT_NAME(setPhotoAspect(_:));
+
 /// Place the garment on a torso. Each pointer is xyz world meters. `preferToward`
 /// is typically the AR camera world position so the patch sits on the visible side.
 - (void)initializeGarmentWithLeftShoulder:(const float *)leftShoulder
