@@ -18,6 +18,25 @@ struct BodyCapsule: Equatable {
     }
 }
 
+/// Oriented volume for chest / hip so the sheet sits on the torso, not in it.
+/// Packed as 12 floats: cx,cy,cz, rx,ry,rz, ux,uy,uz, vx,vy,vz.
+struct BodyEllipsoid: Equatable {
+    var center: SIMD3<Float>
+    var radii: SIMD3<Float>
+    var axisU: SIMD3<Float>
+    var axisV: SIMD3<Float>
+
+    static let packedStride = 12
+
+    func pack(into out: inout [Float], at i: Int) {
+        let o = i * BodyEllipsoid.packedStride
+        out[o + 0] = center.x; out[o + 1] = center.y; out[o + 2] = center.z
+        out[o + 3] = radii.x;  out[o + 4] = radii.y;  out[o + 5] = radii.z
+        out[o + 6] = axisU.x;  out[o + 7] = axisU.y;  out[o + 8] = axisU.z
+        out[o + 9] = axisV.x;  out[o + 10] = axisV.y; out[o + 11] = axisV.z
+    }
+}
+
 /// Maps an `ARSkeleton3D` (or a standing T-pose) onto a small set of capsules that
 /// approximate the body for cloth collision. Capsules are an inner hull: cheap and
 /// stable, but they will not capture chest/breast/glute detail — an SDF is the
@@ -63,7 +82,7 @@ enum BodyCapsuleRig {
         return SIMD3<Float>(world.columns.3.x, world.columns.3.y, world.columns.3.z)
     }
 
-    static func capsules(from body: ARBodyAnchor) -> [BodyCapsule] {
+    static func capsules(from body: ARBodyAnchor, scale: Float = 1) -> [BodyCapsule] {
         func p(_ joint: ARSkeleton.JointName) -> SIMD3<Float>? {
             worldPosition(of: joint, body: body)
         }
@@ -71,47 +90,41 @@ enum BodyCapsuleRig {
         var out: [BodyCapsule] = []
         out.reserveCapacity(13)
 
-        // Head: neck → skull. Radius covers the cranium so the collar doesn't clip.
         if let a = p(Joint.neck1) ?? p(Joint.spine7), let b = p(Joint.head) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.11))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.11 * scale))
         }
-        // Spine: hips → base of neck. Generous radius so the torso is a volume, not a stick.
         if let a = p(Joint.hips), let b = p(Joint.spine7) ?? p(Joint.neck1) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.14))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.14 * scale))
         }
-        // Shoulders: clavicle bar. Keeps the garment from sinking into the upper chest.
         if let a = p(Joint.leftShoulder), let b = p(Joint.rightShoulder) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.07))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.07 * scale))
         }
-        // Hips: left ↔ right greater trochanter. Stops the hem falling through the pelvis.
         if let a = p(Joint.leftUpLeg), let b = p(Joint.rightUpLeg) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.11))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.11 * scale))
         }
-        // Upper / lower arms.
         if let a = p(Joint.leftShoulder), let b = p(Joint.leftArm) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.055))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.055 * scale))
         }
         if let a = p(Joint.leftArm), let b = p(Joint.leftForearm) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.045))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.045 * scale))
         }
         if let a = p(Joint.rightShoulder), let b = p(Joint.rightArm) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.055))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.055 * scale))
         }
         if let a = p(Joint.rightArm), let b = p(Joint.rightForearm) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.045))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.045 * scale))
         }
-        // Upper / lower legs.
         if let a = p(Joint.leftUpLeg), let b = p(Joint.leftLeg) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.08))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.08 * scale))
         }
         if let a = p(Joint.leftLeg), let b = p(Joint.leftFoot) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.055))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.055 * scale))
         }
         if let a = p(Joint.rightUpLeg), let b = p(Joint.rightLeg) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.08))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.08 * scale))
         }
         if let a = p(Joint.rightLeg), let b = p(Joint.rightFoot) {
-            out.append(BodyCapsule(a: a, b: b, radius: 0.055))
+            out.append(BodyCapsule(a: a, b: b, radius: 0.055 * scale))
         }
         return out
     }
@@ -128,10 +141,7 @@ enum BodyCapsuleRig {
         return TorsoHandles(leftShoulder: ls, rightShoulder: rs, leftHip: lh, rightHip: rh)
     }
 
-    /// Standing T-pose facing the camera, 2 m along −Z. Used when ARKit body tracking
-    /// is unavailable (Simulator, A11-and-older, iPad without the required camera).
-    /// Person faces +Z (toward a camera at the origin looking −Z); anatomical left is +X.
-    static func tPoseStanding(at origin: SIMD3<Float> = SIMD3(0, 0, -2)) -> (capsules: [BodyCapsule], torso: TorsoHandles) {
+    static func tPoseStanding(at origin: SIMD3<Float> = SIMD3(0, 0, -2), scale: Float = 1) -> (capsules: [BodyCapsule], torso: TorsoHandles) {
         func w(_ x: Float, _ y: Float, _ z: Float) -> SIMD3<Float> {
             origin + SIMD3(x, y, z)
         }
@@ -152,23 +162,73 @@ enum BodyCapsuleRig {
         let rightAnkle = w(-0.12, 0.08, 0)
 
         let capsules: [BodyCapsule] = [
-            BodyCapsule(a: neck, b: head, radius: 0.11),
-            BodyCapsule(a: hips, b: neck, radius: 0.14),
-            BodyCapsule(a: leftShoulder, b: rightShoulder, radius: 0.07),
-            BodyCapsule(a: leftHip, b: rightHip, radius: 0.11),
-            BodyCapsule(a: leftShoulder, b: leftElbow, radius: 0.055),
-            BodyCapsule(a: leftElbow, b: leftWrist, radius: 0.045),
-            BodyCapsule(a: rightShoulder, b: rightElbow, radius: 0.055),
-            BodyCapsule(a: rightElbow, b: rightWrist, radius: 0.045),
-            BodyCapsule(a: leftHip, b: leftKnee, radius: 0.08),
-            BodyCapsule(a: leftKnee, b: leftAnkle, radius: 0.055),
-            BodyCapsule(a: rightHip, b: rightKnee, radius: 0.08),
-            BodyCapsule(a: rightKnee, b: rightAnkle, radius: 0.055)
+            BodyCapsule(a: neck, b: head, radius: 0.11 * scale),
+            BodyCapsule(a: hips, b: neck, radius: 0.14 * scale),
+            BodyCapsule(a: leftShoulder, b: rightShoulder, radius: 0.07 * scale),
+            BodyCapsule(a: leftHip, b: rightHip, radius: 0.11 * scale),
+            BodyCapsule(a: leftShoulder, b: leftElbow, radius: 0.055 * scale),
+            BodyCapsule(a: leftElbow, b: leftWrist, radius: 0.045 * scale),
+            BodyCapsule(a: rightShoulder, b: rightElbow, radius: 0.055 * scale),
+            BodyCapsule(a: rightElbow, b: rightWrist, radius: 0.045 * scale),
+            BodyCapsule(a: leftHip, b: leftKnee, radius: 0.08 * scale),
+            BodyCapsule(a: leftKnee, b: leftAnkle, radius: 0.055 * scale),
+            BodyCapsule(a: rightHip, b: rightKnee, radius: 0.08 * scale),
+            BodyCapsule(a: rightKnee, b: rightAnkle, radius: 0.055 * scale)
         ]
         let torso = TorsoHandles(leftShoulder: leftShoulder,
                                  rightShoulder: rightShoulder,
                                  leftHip: leftHip,
                                  rightHip: rightHip)
         return (capsules, torso)
+    }
+
+    static func volumeEllipsoids(torso: TorsoHandles, cameraWorld: SIMD3<Float>, scale: Float = 1) -> [BodyEllipsoid] {
+        let shoulderMid = (torso.leftShoulder + torso.rightShoulder) * 0.5
+        let hipMid = (torso.leftHip + torso.rightHip) * 0.5
+        var across = torso.rightShoulder - torso.leftShoulder
+        if simd_length(across) < 1e-4 { across = SIMD3(1, 0, 0) }
+        let u = simd_normalize(across)
+        var down = hipMid - shoulderMid
+        if simd_length(down) < 1e-4 { down = SIMD3(0, -1, 0) }
+        let v = simd_normalize(down)
+        var forward = simd_cross(u, SIMD3(0, 1, 0))
+        if simd_length(forward) < 1e-4 { forward = SIMD3(0, 0, 1) }
+        forward = simd_normalize(forward)
+        if simd_dot(forward, cameraWorld - shoulderMid) < 0 { forward = -forward }
+        let chest = (shoulderMid * 0.55 + hipMid * 0.45) + forward * (0.04 * scale)
+        let hip = hipMid + forward * (0.03 * scale)
+        let chestRadii = SIMD3<Float>(0.16, 0.13, 0.11) * scale
+        let hipRadii = SIMD3<Float>(0.15, 0.10, 0.12) * scale
+        return [
+            BodyEllipsoid(center: chest, radii: chestRadii, axisU: u, axisV: SIMD3(0, 1, 0)),
+            BodyEllipsoid(center: hip, radii: hipRadii, axisU: u, axisV: SIMD3(0, 1, 0))
+        ]
+    }
+
+    static func upperArmCapsules(from body: ARBodyAnchor, scale: Float = 1) -> [BodyCapsule] {
+        func p(_ joint: ARSkeleton.JointName) -> SIMD3<Float>? {
+            worldPosition(of: joint, body: body)
+        }
+        var out: [BodyCapsule] = []
+        if let a = p(Joint.leftShoulder), let b = p(Joint.leftArm) {
+            out.append(BodyCapsule(a: a, b: b, radius: 0.055 * scale))
+        }
+        if let a = p(Joint.rightShoulder), let b = p(Joint.rightArm) {
+            out.append(BodyCapsule(a: a, b: b, radius: 0.055 * scale))
+        }
+        return out
+    }
+
+    static func upperArmCapsulesTPose(torso: TorsoHandles, scale: Float = 1) -> [BodyCapsule] {
+        let leftElbow = torso.leftShoulder + SIMD3(0.30, 0, 0)
+        let rightElbow = torso.rightShoulder + SIMD3(-0.30, 0, 0)
+        return [
+            BodyCapsule(a: torso.leftShoulder, b: leftElbow, radius: 0.055 * scale),
+            BodyCapsule(a: torso.rightShoulder, b: rightElbow, radius: 0.055 * scale)
+        ]
+    }
+
+    static func scaled(_ capsules: [BodyCapsule], by scale: Float) -> [BodyCapsule] {
+        capsules.map { BodyCapsule(a: $0.a, b: $0.b, radius: $0.radius * scale) }
     }
 }
