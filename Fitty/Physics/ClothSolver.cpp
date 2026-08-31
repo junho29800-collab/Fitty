@@ -91,6 +91,10 @@ void ClothSolver::setCapsules(const float* packed, int count) {
     }
 }
 
+void ClothSolver::setPhotoAspect(float widthOverHeight) {
+    photoAspect_ = widthOverHeight;
+}
+
 void ClothSolver::buildTopology(float spacing) {
     constraints_.clear();
     constraints_.reserve(static_cast<size_t>(width_ * height_ * 6));
@@ -186,8 +190,18 @@ void ClothSolver::initializeGarment(const Vec3& leftShoulder,
 
     // Extend a bit past the shoulder joints so the patch wraps toward the deltoids,
     // and a bit past the hips so the hem has length to drape.
-    const float halfWidth = acrossLen * 0.5f + 0.04f;
-    const float lengthV = downLen + 0.06f;
+    float halfWidth = acrossLen * 0.5f + 0.04f;
+    float lengthV = downLen + 0.06f;
+    // Optional photo-aspect fit: a wide shirt isn't squashed into a square, a tunic
+    // isn't cropped to a tee. Rest lengths stay at construction spacing (fitted slack).
+    if (photoAspect_ > 0.05f) {
+        const float bodyAspect = (2.f * halfWidth) / std::max(lengthV, 0.05f);
+        if (photoAspect_ > bodyAspect) {
+            halfWidth *= clampf(photoAspect_ / std::max(bodyAspect, 0.05f), 1.f, 1.6f);
+        } else {
+            lengthV *= clampf(bodyAspect / photoAspect_, 1.f, 1.6f);
+        }
+    }
     garmentHalfWidth_ = halfWidth;
 
     const float restInvMass = 1.f / config_.particleMass;
