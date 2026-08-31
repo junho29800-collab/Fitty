@@ -13,52 +13,51 @@ struct ClothVertex {
 
 /// RealityKit entity that displays the simulated garment with a physical PBR material.
 ///
-/// Mesh strategy (verified against the iOS 17/18 SDKs):
-/// * **iOS 18+** — `LowLevelMesh` + `MeshResource(from:)` (WWDC24 / RealityKit). Vertex
-///   buffers are mutated in place via `withUnsafeMutableBytes` so a frame does not
-///   allocate a new `MeshResource`. Indices are uploaded once.
-/// * **iOS 17** — `MeshDescriptor` + `MeshResource.generate(from:)`. There is no
-///   public mapped-buffer mesh on 17, so the resource is rebuilt on upload. That
-///   path is correct but allocates; it exists so the project still deploys to 17.
-///
-/// Texture: `applyTexture(_:)` swaps `PhysicallyBasedMaterial.baseColor` on the
-/// existing `ModelEntity`. UVs are u across columns, v down rows (shoulder → hip).
+/// Front + back: RealityKit PhysicallyBasedMaterial cannot bind a different texture
+/// to back faces of a single material (`faceCulling = .none` samples the same UV).
+/// When a back photo exists we:
+///   1. Pack an atlas in U (left = front, right = back).
+///   2. Duplicate the triangle list with reversed winding and UV.u += 0.5.
+///   3. Set `faceCulling = .back` so each side samples its half.
+/// Documented choice: atlas-in-U + split grid, not two-sided PBR.
 final class ClothMeshEntity: Entity {
 
-    private let gridWidth: Int
-    private let gridHeight: Int
-    private let indexCount: Int
+    private var gridWidth: Int
+    private var gridHeight: Int
+    private var indexCount: Int
 
     private var model: ModelEntity
     private var pbr: PhysicallyBasedMaterial
     private var uv: [SIMD2<Float>]
 
-    // iOS 18 path
     private var lowLevelMesh: AnyObject?
     private var indicesUploaded = false
+    private var atlasMode = false
 
-    // iOS 17 scratch (preallocated; generate() still allocates the resource)
     private var positions17: [SIMD3<Float>]
     private var normals17: [SIMD3<Float>]
     private var indices32: [UInt32]
+    private var frontIndices: [UInt32]
+    private var atlasIndices: [UInt32]
 
     init(width: Int, height: Int, indices: [UInt32]) {
         self.gridWidth = width
         self.gridHeight = height
-        self.indexCount = indices.count
+        self.frontIndices = indices
+        self.atlasIndices = ClothMeshEntity.makeAtlasIndices(front: indices, vertexCount: width * height)
         self.indices32 = indices
+        self.indexCount = indices.count
         self.uv = []
-        self.positions17 = Array(repeating: .zero, count: width * height)
-        self.normals17 = Array(repeating: SIMD3<Float>(0, 0, 1), count: width * height)
+        let cap = width * height * 2
+        self.positions17 = Array(repeating: .zero, count: cap)
+        self.normals17 = Array(repeating: SIMD3<Float>(0, 0, 1), count: cap)
 
         var material = PhysicallyBasedMaterial()
-        // Cool woven cotton: mostly dielectric, mid roughness so folds read under
-        // the directional light without turning into a mirror.
         material.baseColor = .init(tint: UIColor(red: 0.18, green: 0.38, blue: 0.78, alpha: 1))
         material.roughness = .init(floatLiteral: 0.50)
         material.metallic = .init(floatLiteral: 0.04)
         material.blending = .transparent(opacity: .init(floatLiteral: 0.94))
-        material.faceCulling = .none // garment is a thin sheet; both sides must render
+        material.faceCulling = .none
         self.pbr = material
 
         let placeholder = MeshResource.generatePlane(width: 0.2, height: 0.3)
@@ -67,20 +66,12 @@ final class ClothMeshEntity: Entity {
         name = "FittyCloth"
         addChild(model)
 
-        uv.reserveCapacity(width * height)
-        for row in 0..<height {
-            for col in 0..<width {
-                let u = width > 1 ? Float(col) / Float(width - 1) : 0
-                let v = height > 1 ? Float(row) / Float(height - 1) : 0
-                uv.append(SIMD2(u, v))
-            }
-        }
+        rebuildUVs(atlas: false)
 
         if #available(iOS 18.0, *) {
             do {
-                try setupLowLevelMesh(indexCount: indices.count)
+                try setupLowLevelMesh(vertexCapacity: cap, indexCount: atlasIndices.count)
             } catch {
-                // Fall through to the MeshDescriptor path on the first upload.
             }
         }
     }
@@ -89,25 +80,86 @@ final class ClothMeshEntity: Entity {
         fatalError("ClothMeshEntity.init() is unused — call init(width:height:indices:)")
     }
 
-    /// Map a scanned garment photo onto the existing cloth mesh. Does not allocate a
-    /// new entity. `nil` restores the woven default tint. Alpha in a subject-lifted
-    /// PNG drives opacity so the table background stays gone.
-    func applyTexture(_ image: UIImage?) {
-        pbr.roughness = .init(floatLiteral: 0.50)
-        pbr.metallic = .init(floatLiteral: 0.04)
-        pbr.faceCulling = .none
+    private static func makeAtlasIndices(front: [UInt32], vertexCount: Int) -> [UInt32] {
+        var out = front
+        out.reserveCapacity(front.count * 2)
+        let off = UInt32(vertexCount)
+        var i = 0
+        while i + 2 < front.count {
+            let a = front[i] + off
+            let b = front[i + 1] + off
+            let c = front[i + 2] + off
+            out.append(a)
+            out.append(c) // reverse winding so the back copy faces the other way
+            out.append(b)
+            i += 3
+        }
+        return out
+    }
 
-        if let image, let cg = image.cgImage {
+    private func rebuildUVs(atlas: Bool) {
+        uv.removeAll(keepingCapacity: true)
+        let n = gridWidth * gridHeight
+        uv.reserveCapacity(n * 2)
+        for row in 0..<gridHeight {
+            for col in 0..<gridWidth {
+                let u = gridWidth > 1 ? Float(col) / Float(gridWidth - 1) : 0
+                let v = gridHeight > 1 ? Float(row) / Float(gridHeight - 1) : 0
+                if atlas {
+                    uv.append(SIMD2(u * 0.5, v))
+                } else {
+                    uv.append(SIMD2(u, v))
+                }
+            }
+        }
+        if atlas {
+            for row in 0..<gridHeight {
+                for col in 0..<gridWidth {
+                    let u = gridWidth > 1 ? Float(col) / Float(gridWidth - 1) : 0
+                    let v = gridHeight > 1 ? Float(row) / Float(gridHeight - 1) : 0
+                    uv.append(SIMD2(0.5 + u * 0.5, v))
+                }
+            }
+        }
+    }
+
+    /// Map a scanned garment onto the existing cloth mesh. Does not allocate a new entity.
+    /// `nil` front restores the woven default tint.
+    func applyTexture(front: UIImage?,
+                      back: UIImage? = nil,
+                      roughness: Float = 0.50,
+                      metallic: Float = 0.04,
+                      emissive: Float = 0) {
+        pbr.roughness = .init(floatLiteral: roughness)
+        pbr.metallic = .init(floatLiteral: metallic)
+        let emit = max(0, min(emissive, 0.25))
+        pbr.emissiveColor = .init(color: UIColor(white: CGFloat(emit), alpha: 1))
+
+        let wantAtlas = (front != nil && back != nil)
+        if wantAtlas != atlasMode {
+            atlasMode = wantAtlas
+            rebuildUVs(atlas: atlasMode)
+            indices32 = atlasMode ? atlasIndices : frontIndices
+            indexCount = indices32.count
+            indicesUploaded = false
+        }
+        pbr.faceCulling = atlasMode ? .back : .none
+
+        var source: UIImage? = front
+        if let front, let back {
+            source = ImageIOSupport.atlas(front: front, back: back) ?? front
+        }
+
+        if let image = source, let cg = image.cgImage {
             let options = TextureResource.CreateOptions(semantic: .color)
             do {
                 let texture = try TextureResource.generate(from: cg,
-                                                           withName: "fitty.garment.front",
+                                                           withName: "fitty.garment.albedo",
                                                            options: options)
                 let param = MaterialParameters.Texture(texture)
                 pbr.baseColor = .init(texture: param, tint: .white)
                 pbr.blending = .transparent(opacity: .init(scale: 1.0, texture: param))
             } catch {
-                // Keep the previous material if the SDK rejects the CGImage.
             }
         } else {
             pbr.baseColor = .init(tint: UIColor(red: 0.18, green: 0.38, blue: 0.78, alpha: 1))
@@ -120,13 +172,20 @@ final class ClothMeshEntity: Entity {
         }
     }
 
-    @available(iOS 18.0, *)
-    private func setupLowLevelMesh(indexCount: Int) throws {
-        let vertexCount = gridWidth * gridHeight
-        let stride = MemoryLayout<ClothVertex>.stride
+    func setEmissive(_ value: Float) {
+        let emit = max(0, min(value, 0.25))
+        pbr.emissiveColor = .init(color: UIColor(white: CGFloat(emit), alpha: 1))
+        if var modelComp = model.model {
+            modelComp.materials = [pbr]
+            model.model = modelComp
+        }
+    }
 
+    @available(iOS 18.0, *)
+    private func setupLowLevelMesh(vertexCapacity: Int, indexCount: Int) throws {
+        let stride = MemoryLayout<ClothVertex>.stride
         var desc = LowLevelMesh.Descriptor()
-        desc.vertexCapacity = vertexCount
+        desc.vertexCapacity = vertexCapacity
         desc.indexCapacity = indexCount
         desc.indexType = .uint32
         desc.vertexAttributes = [
@@ -137,7 +196,6 @@ final class ClothMeshEntity: Entity {
         desc.vertexLayouts = [
             LowLevelMesh.Layout(bufferIndex: 0, bufferOffset: 0, bufferStride: stride)
         ]
-
         let mesh = try LowLevelMesh(descriptor: desc)
         let resource = try MeshResource(from: mesh)
         model.model = ModelComponent(mesh: resource, materials: [pbr])
@@ -175,22 +233,29 @@ final class ClothMeshEntity: Entity {
                                 minP: inout SIMD3<Float>,
                                 maxP: inout SIMD3<Float>) {
         guard let mesh = anyMesh as? LowLevelMesh else { return }
+        let copies = atlasMode ? 2 : 1
 
         mesh.withUnsafeMutableBytes(bufferIndex: 0) { raw in
             let verts = raw.bindMemory(to: ClothVertex.self)
-            for i in 0..<count {
-                let p = SIMD3<Float>(positionsPacked[i * 3 + 0],
-                                     positionsPacked[i * 3 + 1],
-                                     positionsPacked[i * 3 + 2])
-                let n = SIMD3<Float>(normalsPacked[i * 3 + 0],
-                                     normalsPacked[i * 3 + 1],
-                                     normalsPacked[i * 3 + 2])
-                let uv = self.uv[i]
-                verts[i] = ClothVertex(px: p.x, py: p.y, pz: p.z,
-                                       nx: n.x, ny: n.y, nz: n.z,
-                                       u: uv.x, v: uv.y)
-                minP = simd_min(minP, p)
-                maxP = simd_max(maxP, p)
+            for copy in 0..<copies {
+                let base = copy * count
+                let flip = copy == 1
+                for i in 0..<count {
+                    let p = SIMD3<Float>(positionsPacked[i * 3 + 0],
+                                         positionsPacked[i * 3 + 1],
+                                         positionsPacked[i * 3 + 2])
+                    var n = SIMD3<Float>(normalsPacked[i * 3 + 0],
+                                         normalsPacked[i * 3 + 1],
+                                         normalsPacked[i * 3 + 2])
+                    if flip { n = -n }
+                    let uvIndex = min(base + i, uv.count - 1)
+                    let uv = self.uv[uvIndex]
+                    verts[base + i] = ClothVertex(px: p.x, py: p.y, pz: p.z,
+                                                  nx: n.x, ny: n.y, nz: n.z,
+                                                  u: uv.x, v: uv.y)
+                    minP = simd_min(minP, p)
+                    maxP = simd_max(maxP, p)
+                }
             }
         }
 
@@ -216,24 +281,31 @@ final class ClothMeshEntity: Entity {
     private func uploadMeshDescriptor(positionsPacked: UnsafePointer<Float>,
                                       normalsPacked: UnsafePointer<Float>,
                                       count: Int) {
-        for i in 0..<count {
-            positions17[i] = SIMD3(positionsPacked[i * 3 + 0],
-                                   positionsPacked[i * 3 + 1],
-                                   positionsPacked[i * 3 + 2])
-            normals17[i] = SIMD3(normalsPacked[i * 3 + 0],
-                                 normalsPacked[i * 3 + 1],
-                                 normalsPacked[i * 3 + 2])
+        let copies = atlasMode ? 2 : 1
+        for copy in 0..<copies {
+            let base = copy * count
+            let flip = copy == 1
+            for i in 0..<count {
+                positions17[base + i] = SIMD3(positionsPacked[i * 3 + 0],
+                                              positionsPacked[i * 3 + 1],
+                                              positionsPacked[i * 3 + 2])
+                var n = SIMD3<Float>(normalsPacked[i * 3 + 0],
+                                     normalsPacked[i * 3 + 1],
+                                     normalsPacked[i * 3 + 2])
+                if flip { n = -n }
+                normals17[base + i] = n
+            }
         }
+        let used = copies * count
         var descriptor = MeshDescriptor(name: "FittyCloth")
-        descriptor.positions = MeshBuffers.Positions(positions17)
-        descriptor.normals = MeshBuffers.Normals(normals17)
-        descriptor.textureCoordinates = MeshBuffers.TextureCoordinates(uv)
+        descriptor.positions = MeshBuffers.Positions(Array(positions17.prefix(used)))
+        descriptor.normals = MeshBuffers.Normals(Array(normals17.prefix(used)))
+        descriptor.textureCoordinates = MeshBuffers.TextureCoordinates(Array(uv.prefix(used)))
         descriptor.primitives = .triangles(indices32)
         do {
             let resource = try MeshResource.generate(from: [descriptor])
             model.model = ModelComponent(mesh: resource, materials: [pbr])
         } catch {
-            // Keep the last good mesh if generate fails for a degenerate frame.
         }
     }
 }
