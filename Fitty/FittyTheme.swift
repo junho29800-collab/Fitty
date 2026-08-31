@@ -20,8 +20,11 @@ enum FittyTheme {
 }
 
 enum FittyRoute: Hashable {
-    case scan
+    case scan(rescanID: UUID?)
     case tryOn
+    case wardrobe
+    case settings
+    case editor(UUID)
 }
 
 struct BoxyShape: Shape {
@@ -67,7 +70,7 @@ struct BoxyButtonStyle: ButtonStyle {
             .background(fill)
             .clipShape(BoxyShape())
             .overlay(BoxyShape().stroke(stroke, lineWidth: FittyTheme.stroke))
-            .opacity(configuration.isPressed ? 0.72 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1) // S17 pressed state
     }
 }
 
@@ -81,5 +84,37 @@ struct BoxyPanel<Content: View>: View {
             .background(FittyTheme.canvas.opacity(opacity))
             .overlay(BoxyShape().stroke(FittyTheme.ink, lineWidth: FittyTheme.stroke))
             .clipShape(BoxyShape())
+    }
+}
+
+/// Boxy L-shaped reticle ticks (not a rounded oval).
+struct ReticleTicks: View {
+    var length: CGFloat = 22
+    var inset: CGFloat = 28
+
+    var body: some View {
+        GeometryReader { geo in
+            let r = geo.frame(in: .local).insetBy(dx: inset, dy: inset)
+            Path { p in
+                // TL
+                p.move(to: CGPoint(x: r.minX, y: r.minY + length))
+                p.addLine(to: CGPoint(x: r.minX, y: r.minY))
+                p.addLine(to: CGPoint(x: r.minX + length, y: r.minY))
+                // TR
+                p.move(to: CGPoint(x: r.maxX - length, y: r.minY))
+                p.addLine(to: CGPoint(x: r.maxX, y: r.minY))
+                p.addLine(to: CGPoint(x: r.maxX, y: r.minY + length))
+                // BL
+                p.move(to: CGPoint(x: r.minX, y: r.maxY - length))
+                p.addLine(to: CGPoint(x: r.minX, y: r.maxY))
+                p.addLine(to: CGPoint(x: r.minX + length, y: r.maxY))
+                // BR
+                p.move(to: CGPoint(x: r.maxX - length, y: r.maxY))
+                p.addLine(to: CGPoint(x: r.maxX, y: r.maxY))
+                p.addLine(to: CGPoint(x: r.maxX, y: r.maxY - length))
+            }
+            .stroke(FittyTheme.accent, lineWidth: 2)
+        }
+        .allowsHitTesting(false)
     }
 }
