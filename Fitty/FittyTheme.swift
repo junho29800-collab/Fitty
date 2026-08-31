@@ -89,7 +89,7 @@ struct BoxyPanel<Content: View>: View {
     }
 }
 
-/// Square track + square thumb. 2 pt ink stroke. Gold fill when on.
+/// Square track + square cream thumb that slides. Gold track when on; thumb stays cream.
 /// Never SwiftUI Toggle — not even inside BoxyPanel.
 struct BoxySwitch: View {
     let title: String
@@ -116,7 +116,7 @@ struct BoxySwitch: View {
                     Rectangle()
                         .stroke(FittyTheme.ink, lineWidth: FittyTheme.stroke)
                     Rectangle()
-                        .fill(isOn ? FittyTheme.accent : FittyTheme.canvas)
+                        .fill(FittyTheme.canvas)
                         .overlay(Rectangle().stroke(FittyTheme.ink, lineWidth: FittyTheme.stroke))
                         .frame(width: thumb, height: thumb)
                         .padding(2)
