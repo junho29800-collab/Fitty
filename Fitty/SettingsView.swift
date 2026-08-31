@@ -3,14 +3,12 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var device: DeviceProfile
-    @EnvironmentObject var auth: AuthStore
 
     var body: some View {
         ZStack {
             FittyTheme.canvas.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    accountPanel
                     qualityPanel
                     togglesPanel
                     prefsPanel
@@ -33,25 +31,6 @@ struct SettingsView: View {
         .toolbarBackground(FittyTheme.canvas, for: .navigationBar)
         .tint(FittyTheme.ink)
         .preferredColorScheme(.light)
-    }
-
-    private var accountPanel: some View {
-        BoxyPanel {
-            VStack(alignment: .leading, spacing: 10) {
-                sectionLabel(L10n.t("settings.account"))
-                if let email = auth.sessionEmail {
-                    Text(email)
-                        .font(.system(.body, design: .default))
-                        .foregroundStyle(FittyTheme.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                Button(L10n.t("auth.logout")) {
-                    auth.logOut()
-                }
-                .buttonStyle(BoxyButtonStyle(kind: .secondary))
-                .accessibilityLabel(L10n.t("auth.logout"))
-            }
-        }
     }
 
     private var qualityPanel: some View {
