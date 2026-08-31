@@ -1,38 +1,34 @@
 import Foundation
 import QuartzCore
+import RealityKit
 import simd
 
-/// Owns the C++ PBD solver, the background simulation queue, and the RealityKit
+/// Owns the C++ PBD/XPBD solver, the background simulation queue, and the RealityKit
 /// cloth entity. Ticked from the AR scene update; the solver itself never runs on
-/// the main UI thread.
-///
-/// Pipeline per frame:
-/// 1. The AR session / host copies world-space capsules + shoulder/hip handles
-///    into preallocated scratch (this may happen on the session queue).
-/// 2. `tick(deltaTime:)` hops onto `simulationQueue` (serial). If a step is already
-///    in flight we drop the frame rather than queue a backlog.
-/// 3. After `step`, positions/normals are memcpy'd into Swift-side scratch and
-///    uploaded on the main queue, which is also RealityKit's render thread.
+/// the main UI thread (`com.junholee.Fitty.pbd`).
 final class ClothSimulationComponent {
 
-    static let gridWidth = 24
-    static let gridHeight = 32
-    /// Rest spacing of adjacent particles in meters. A 24×32 grid at 1.8 cm spans
-    /// roughly 41 cm × 56 cm at rest — a fitted torso patch. The live garment is
-    /// *placed* from the skeleton (shoulders/hips) so a larger body starts slightly
-    /// pre-stretched.
-    static let restSpacing: Float = 0.018
+    private(set) var gridWidth: Int
+    private(set) var gridHeight: Int
+    private(set) var restSpacing: Float
 
-    let bridge: ClothSolverBridge
-    let meshEntity: ClothMeshEntity
+    private(set) var bridge: ClothSolverBridge
+    private(set) var meshEntity: ClothMeshEntity
     let simulationQueue = DispatchQueue(label: "com.junholee.Fitty.pbd", qos: .userInteractive)
 
     weak var status: SimulationStatus?
+    weak var meshParent: Entity?
 
     private let lock = NSLock()
     private var packedCapsules: [Float]
     private var packedCapsulesSim: [Float]
     private var capsuleCount = 0
+    private var packedEllipsoids: [Float]
+    private var packedEllipsoidsSim: [Float]
+    private var ellipsoidCount = 0
+    private var packedArms: [Float]
+    private var packedArmsSim: [Float]
+    private var armCount = 0
     private var leftShoulder = SIMD3<Float>(repeating: 0)
     private var rightShoulder = SIMD3<Float>(repeating: 0)
     private var leftHip = SIMD3<Float>(repeating: 0)
@@ -41,6 +37,16 @@ final class ClothSimulationComponent {
     private var needsGarmentReset = true
     private var hasPose = false
     private var photoAspect: Float = 0
+    private var pinMode: Int32 = 0
+    private var sizeScale: Float = 1
+    private var bodyScale: Float = 1
+    private var fitLength: Float = 1
+    private var fitTightness: Float = 1
+    private var fitDrape: Float = 1
+    private var wind = SIMD3<Float>(repeating: 0)
+    private var fabric = FabricPreset.cotton
+    private var pendingQuality: SimQuality?
+    private var appliedQuality: SimQuality = .med
 
     private var positionScratch: [Float]
     private var normalScratch: [Float]
@@ -50,10 +56,14 @@ final class ClothSimulationComponent {
     private var hzFrames: Int = 0
     private var displayedHz: Double = 0
 
-    init() {
-        let w = Self.gridWidth
-        let h = Self.gridHeight
-        bridge = ClothSolverBridge(width: Int32(w), height: Int32(h), spacing: Self.restSpacing)
+    init(quality: SimQuality = .med) {
+        self.gridWidth = quality.width
+        self.gridHeight = quality.height
+        self.restSpacing = quality.spacing
+        self.appliedQuality = quality
+        bridge = ClothSolverBridge(width: Int32(quality.width),
+                                   height: Int32(quality.height),
+                                   spacing: quality.spacing)
         let indexCount = Int(bridge.indexCount)
         var indices = [UInt32](repeating: 0, count: indexCount)
         if indexCount > 0 {
@@ -62,41 +72,68 @@ final class ClothSimulationComponent {
                 dst.baseAddress?.update(from: src, count: indexCount)
             }
         }
-        meshEntity = ClothMeshEntity(width: w, height: h, indices: indices)
+        meshEntity = ClothMeshEntity(width: quality.width, height: quality.height, indices: indices)
 
         let capsuleFloats = 32 * BodyCapsule.packedStride
         packedCapsules = [Float](repeating: 0, count: capsuleFloats)
         packedCapsulesSim = [Float](repeating: 0, count: capsuleFloats)
-        let packedCount = Int(bridge.particleCount) * 3
+        packedEllipsoids = [Float](repeating: 0, count: 8 * BodyEllipsoid.packedStride)
+        packedEllipsoidsSim = [Float](repeating: 0, count: 8 * BodyEllipsoid.packedStride)
+        packedArms = [Float](repeating: 0, count: 8 * BodyCapsule.packedStride)
+        packedArmsSim = [Float](repeating: 0, count: 8 * BodyCapsule.packedStride)
+        let packedCount = max(32 * 40, Int(bridge.particleCount)) * 3
         positionScratch = [Float](repeating: 0, count: packedCount)
         normalScratch = [Float](repeating: 0, count: packedCount)
+        applyFabricLocked(fabric)
     }
 
-    /// Width/height of the isolated garment photo. 0 keeps body-only sizing.
-    /// Safe to call from the main thread; consumed on the next garment reset.
     func setPhotoAspect(_ aspect: Float) {
-        lock.lock()
-        photoAspect = aspect
-        lock.unlock()
+        lock.lock(); photoAspect = aspect; lock.unlock()
     }
 
-    /// Re-place the sheet from the current skeleton (e.g. after a new scan aspect).
     func requestGarmentReset() {
+        lock.lock(); needsGarmentReset = true; lock.unlock()
+    }
+
+    func setRuntime(fabric: FabricPreset,
+                    size: GarmentSize,
+                    kind: GarmentKind,
+                    fitLength: Float,
+                    fitTightness: Float,
+                    fitDrape: Float,
+                    wind: SIMD3<Float>,
+                    bodyScale: Float) {
         lock.lock()
-        needsGarmentReset = true
+        self.fabric = fabric
+        self.sizeScale = size.scale
+        self.pinMode = kind.pinMode
+        self.fitLength = fitLength
+        self.fitTightness = fitTightness
+        self.fitDrape = fitDrape
+        self.wind = wind
+        self.bodyScale = bodyScale
         lock.unlock()
     }
 
-    /// Store the latest body proxy. Safe to call from the AR session queue.
+    func setQuality(_ quality: SimQuality) {
+        lock.lock()
+        pendingQuality = quality
+        lock.unlock()
+    }
+
     func ingest(capsules: [BodyCapsule],
+                ellipsoids: [BodyEllipsoid],
+                arms: [BodyCapsule],
                 torso: BodyCapsuleRig.TorsoHandles,
                 cameraWorld: SIMD3<Float>,
                 resetGarment: Bool) {
         lock.lock()
         capsuleCount = min(capsules.count, packedCapsules.count / BodyCapsule.packedStride)
-        for i in 0..<capsuleCount {
-            capsules[i].pack(into: &packedCapsules, at: i)
-        }
+        for i in 0..<capsuleCount { capsules[i].pack(into: &packedCapsules, at: i) }
+        ellipsoidCount = min(ellipsoids.count, packedEllipsoids.count / BodyEllipsoid.packedStride)
+        for i in 0..<ellipsoidCount { ellipsoids[i].pack(into: &packedEllipsoids, at: i) }
+        armCount = min(arms.count, packedArms.count / BodyCapsule.packedStride)
+        for i in 0..<armCount { arms[i].pack(into: &packedArms, at: i) }
         leftShoulder = torso.leftShoulder
         rightShoulder = torso.rightShoulder
         leftHip = torso.leftHip
@@ -107,8 +144,6 @@ final class ClothSimulationComponent {
         lock.unlock()
     }
 
-    /// Dispatch one PBD step. Call from the RealityKit scene-update callback with
-    /// that callback's `deltaTime`. Drops the frame if the previous step is still running.
     func tick(deltaTime: TimeInterval) {
         let dt = Float(min(max(deltaTime, 1.0 / 240.0), 1.0 / 20.0))
         simulationQueue.async { [weak self] in
@@ -122,6 +157,8 @@ final class ClothSimulationComponent {
         let t0 = CACurrentMediaTime()
 
         var count = 0
+        var eCount = 0
+        var aCount = 0
         var ls = SIMD3<Float>()
         var rs = SIMD3<Float>()
         var lh = SIMD3<Float>()
@@ -130,6 +167,15 @@ final class ClothSimulationComponent {
         var reset = false
         var ready = false
         var aspect: Float = 0
+        var pin: Int32 = 0
+        var size: Float = 1
+        var body: Float = 1
+        var length: Float = 1
+        var tight: Float = 1
+        var drape: Float = 1
+        var windV = SIMD3<Float>()
+        var fabricV = FabricPreset.cotton
+        var quality: SimQuality?
 
         lock.lock()
         ready = hasPose
@@ -142,9 +188,21 @@ final class ClothSimulationComponent {
         packedCapsulesSim.withUnsafeMutableBufferPointer { dst in
             packedCapsules.withUnsafeBufferPointer { src in
                 let n = min(dst.count, src.count)
-                if let d = dst.baseAddress, let s = src.baseAddress, n > 0 {
-                    d.update(from: s, count: n)
-                }
+                if let d = dst.baseAddress, let s = src.baseAddress, n > 0 { d.update(from: s, count: n) }
+            }
+        }
+        eCount = ellipsoidCount
+        packedEllipsoidsSim.withUnsafeMutableBufferPointer { dst in
+            packedEllipsoids.withUnsafeBufferPointer { src in
+                let n = min(dst.count, src.count)
+                if let d = dst.baseAddress, let s = src.baseAddress, n > 0 { d.update(from: s, count: n) }
+            }
+        }
+        aCount = armCount
+        packedArmsSim.withUnsafeMutableBufferPointer { dst in
+            packedArms.withUnsafeBufferPointer { src in
+                let n = min(dst.count, src.count)
+                if let d = dst.baseAddress, let s = src.baseAddress, n > 0 { d.update(from: s, count: n) }
             }
         }
         ls = leftShoulder; rs = rightShoulder
@@ -152,26 +210,62 @@ final class ClothSimulationComponent {
         toward = preferToward
         reset = needsGarmentReset
         aspect = photoAspect
+        pin = pinMode
+        size = sizeScale
+        body = bodyScale
+        length = fitLength
+        tight = fitTightness
+        drape = fitDrape
+        windV = wind
+        fabricV = fabric
+        quality = pendingQuality
+        pendingQuality = nil
         needsGarmentReset = false
         lock.unlock()
 
+        if let quality, quality != appliedQuality {
+            rebuildQualityOnSimThread(quality)
+            reset = true
+        }
+
+        applyFabricLocked(fabricV)
+        bridge.setXPBDCompliance(fabricV.physics.xpbd)
+        bridge.enableSelfCollision(true)
+        bridge.setPinMode(pin)
+        bridge.setSizeScale(size)
+        bridge.setBodyScale(body)
+        bridge.setFit(length: length, tightness: tight, drape: drape)
+        bridge.setWind(x: windV.x, y: windV.y, z: windV.z)
+        bridge.setPhotoAspect(aspect)
+
         if count > 0 {
             packedCapsulesSim.withUnsafeBufferPointer { buf in
-                if let base = buf.baseAddress {
-                    bridge.updateCapsules(data: base, count: Int32(count))
-                }
+                if let base = buf.baseAddress { bridge.updateCapsules(data: base, count: Int32(count)) }
+            }
+        }
+        if eCount > 0 {
+            packedEllipsoidsSim.withUnsafeBufferPointer { buf in
+                if let base = buf.baseAddress { bridge.setVolumeEllipsoids(data: base, count: Int32(eCount)) }
+            }
+        }
+        if aCount > 0 {
+            packedArmsSim.withUnsafeBufferPointer { buf in
+                if let base = buf.baseAddress { bridge.setArmCapsules(data: base, count: Int32(aCount)) }
             }
         }
 
-        // SIMD3 is 16-byte aligned; first three lanes are xyz. Rebound without allocating.
         func asXYZ(_ v: SIMD3<Float>, _ body: (UnsafePointer<Float>) -> Void) {
             var copy = v
             withUnsafeBytes(of: &copy) { raw in
                 body(raw.bindMemory(to: Float.self).baseAddress!)
             }
         }
+
+        // Pants pin the hip line; everything else pins the shoulders.
+        let pinLeft = (pin == 4) ? lh : ls
+        let pinRight = (pin == 4) ? rh : rs
+
         if reset {
-            bridge.setPhotoAspect(aspect)
             asXYZ(ls) { lp in
                 asXYZ(rs) { rp in
                     asXYZ(lh) { hipL in
@@ -188,8 +282,8 @@ final class ClothSimulationComponent {
                 }
             }
         } else {
-            asXYZ(ls) { lp in
-                asXYZ(rs) { rp in
+            asXYZ(pinLeft) { lp in
+                asXYZ(pinRight) { rp in
                     asXYZ(toward) { cam in
                         bridge.updateShoulderAnchors(left: lp, right: rp, preferToward: cam)
                     }
@@ -200,7 +294,11 @@ final class ClothSimulationComponent {
         bridge.step(deltaTime: dt)
 
         let floats = Int(bridge.particleCount) * 3
-        if floats > 0, floats <= positionScratch.count {
+        if floats > 0 {
+            if floats > positionScratch.count {
+                positionScratch = [Float](repeating: 0, count: floats)
+                normalScratch = [Float](repeating: 0, count: floats)
+            }
             let srcP = bridge.positions
             positionScratch.withUnsafeMutableBufferPointer { dst in
                 dst.baseAddress?.update(from: srcP, count: floats)
@@ -221,6 +319,7 @@ final class ClothSimulationComponent {
         }
         let hz = displayedHz
         let particles = Int(bridge.particleCount)
+        let qLabel = "\(bridge.width)×\(bridge.height)"
         stepping = false
 
         DispatchQueue.main.async { [weak self] in
@@ -233,6 +332,36 @@ final class ClothSimulationComponent {
             }
             self.status?.simHz = hz
             self.status?.particleCount = particles
+            self.status?.qualityLabel = qLabel
+        }
+    }
+
+    private func applyFabricLocked(_ fabric: FabricPreset) {
+        let p = fabric.physics
+        bridge.setConfig(mass: p.mass, damping: p.damping, stretch: p.stretch, shear: p.shear, bend: p.bend, friction: p.friction)
+    }
+
+    private func rebuildQualityOnSimThread(_ quality: SimQuality) {
+        appliedQuality = quality
+        gridWidth = quality.width
+        gridHeight = quality.height
+        restSpacing = quality.spacing
+        bridge.setQuality(width: Int32(quality.width), height: Int32(quality.height), spacing: quality.spacing)
+        let indexCount = Int(bridge.indexCount)
+        var indices = [UInt32](repeating: 0, count: indexCount)
+        if indexCount > 0 {
+            let src = bridge.indices
+            indices.withUnsafeMutableBufferPointer { dst in
+                dst.baseAddress?.update(from: src, count: indexCount)
+            }
+        }
+        let w = quality.width
+        let h = quality.height
+        DispatchQueue.main.sync {
+            let parent = self.meshEntity.parent ?? self.meshParent
+            self.meshEntity.removeFromParent()
+            self.meshEntity = ClothMeshEntity(width: w, height: h, indices: indices)
+            parent?.addChild(self.meshEntity)
         }
     }
 }
