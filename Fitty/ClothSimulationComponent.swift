@@ -40,6 +40,7 @@ final class ClothSimulationComponent {
     private var preferToward = SIMD3<Float>(0, 1.5, 0)
     private var needsGarmentReset = true
     private var hasPose = false
+    private var photoAspect: Float = 0
 
     private var positionScratch: [Float]
     private var normalScratch: [Float]
@@ -69,6 +70,21 @@ final class ClothSimulationComponent {
         let packedCount = Int(bridge.particleCount) * 3
         positionScratch = [Float](repeating: 0, count: packedCount)
         normalScratch = [Float](repeating: 0, count: packedCount)
+    }
+
+    /// Width/height of the isolated garment photo. 0 keeps body-only sizing.
+    /// Safe to call from the main thread; consumed on the next garment reset.
+    func setPhotoAspect(_ aspect: Float) {
+        lock.lock()
+        photoAspect = aspect
+        lock.unlock()
+    }
+
+    /// Re-place the sheet from the current skeleton (e.g. after a new scan aspect).
+    func requestGarmentReset() {
+        lock.lock()
+        needsGarmentReset = true
+        lock.unlock()
     }
 
     /// Store the latest body proxy. Safe to call from the AR session queue.
@@ -113,6 +129,7 @@ final class ClothSimulationComponent {
         var toward = SIMD3<Float>()
         var reset = false
         var ready = false
+        var aspect: Float = 0
 
         lock.lock()
         ready = hasPose
@@ -134,6 +151,7 @@ final class ClothSimulationComponent {
         lh = leftHip; rh = rightHip
         toward = preferToward
         reset = needsGarmentReset
+        aspect = photoAspect
         needsGarmentReset = false
         lock.unlock()
 
@@ -153,6 +171,7 @@ final class ClothSimulationComponent {
             }
         }
         if reset {
+            bridge.setPhotoAspect(aspect)
             asXYZ(ls) { lp in
                 asXYZ(rs) { rp in
                     asXYZ(lh) { hipL in
