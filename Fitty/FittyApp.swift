@@ -4,12 +4,40 @@ import SwiftUI
 struct FittyApp: App {
     @StateObject private var store = GarmentStore()
     @StateObject private var settings = AppSettings.shared
+    @StateObject private var auth = AuthStore.shared
+    @StateObject private var device = DeviceProfile.shared
     @State private var path: [FittyRoute] = []
-    @State private var showOnboarding = false
+    @Environment(\s.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
+            root
+                .environmentObject(store)
+                .environmentObject(settings)
+                .environmentObject(auth)
+                .environmentObject(device)
+                .tint(FittyTheme.ink)
+                .preferredColorScheme(.light)
+                .onChange(of: scenePhase) { _, phase in
+                    device.setForeground(phase == .active)
+                }
+                .onChange(of: auth.sessionEmail) { _, email in
+                    if email == nil { path = [] }
+                }
+                .onAppear {
+                    device.setForeground(true)
+                }
+        }
+    }
+
+    @ViewBuilder
+    private var root: some View {
+        ZStack {
+            if auth.sessionEmail == nil {
+                AuthView()
+            } else if !settings.onboardingDone {
+                OnboardingView { }
+            } else {
                 NavigationStack(path: $path) {
                     HomeView(path: $path)
                         .navigationDestination(for: FittyRoute.self) { route in
@@ -27,31 +55,9 @@ struct FittyApp: App {
                             }
                         }
                 }
-                .environmentObject(store)
-                .environmentObject(settings)
-                .tint(FittyTheme.ink)
-                .preferredColorScheme(.light)
-
-                if showOnboarding {
-                    OnboardingView {
-                        showOnboarding = false
-                    }
-                    .environmentObject(settings)
-                    .transition(.opacity)
-                    .zIndex(2)
-                }
-
-                ToastOverlay()
-                    .zIndex(3)
             }
-            .onAppear {
-                if !settings.onboardingDone {
-                    showOnboarding = true
-                }
-            }
-            .onChange(of: settings.onboardingDone) { _, done in
-                if !done { showOnboarding = true }
-            }
+            ToastOverlay()
+                .zIndex(3)
         }
     }
 }
