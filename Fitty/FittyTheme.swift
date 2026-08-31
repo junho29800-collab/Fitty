@@ -89,10 +89,15 @@ struct BoxyPanel<Content: View>: View {
     }
 }
 
-/// 44 pt ink/accent rectangle that flips. Not SwiftUI Toggle.
+/// Square track + square thumb. 2 pt ink stroke. Gold fill when on.
+/// Never SwiftUI Toggle — not even inside BoxyPanel.
 struct BoxySwitch: View {
     let title: String
     @Binding var isOn: Bool
+
+    private let trackW: CGFloat = 52
+    private let trackH: CGFloat = 28
+    private let thumb: CGFloat = 24
 
     var body: some View {
         Button {
@@ -105,10 +110,19 @@ struct BoxySwitch: View {
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .dynamicTypeSize(.xSmall ... .accessibility3)
-                Rectangle()
-                    .fill(isOn ? FittyTheme.accent : FittyTheme.ink)
-                    .frame(width: 44, height: 44)
-                    .overlay(Rectangle().stroke(FittyTheme.ink, lineWidth: FittyTheme.stroke))
+                ZStack(alignment: isOn ? .trailing : .leading) {
+                    Rectangle()
+                        .fill(isOn ? FittyTheme.accent : FittyTheme.canvas)
+                    Rectangle()
+                        .stroke(FittyTheme.ink, lineWidth: FittyTheme.stroke)
+                    Rectangle()
+                        .fill(isOn ? FittyTheme.accent : FittyTheme.canvas)
+                        .overlay(Rectangle().stroke(FittyTheme.ink, lineWidth: FittyTheme.stroke))
+                        .frame(width: thumb, height: thumb)
+                        .padding(2)
+                }
+                .frame(width: trackW, height: trackH)
+                .frame(minWidth: 44, minHeight: 44, alignment: .center)
             }
             .frame(minHeight: 44)
             .contentShape(Rectangle())
