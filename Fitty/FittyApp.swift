@@ -7,7 +7,7 @@ struct FittyApp: App {
     @StateObject private var auth = AuthStore.shared
     @StateObject private var device = DeviceProfile.shared
     @State private var path: [FittyRoute] = []
-    @Environment(\scenePhase) private var scenePhase
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
