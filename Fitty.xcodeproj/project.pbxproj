@@ -46,3 +46,50 @@
 		A1F1700000000000000000E1 /* AuthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1700000000000000000D1 /* AuthStore.swift */; };
 		A1F1700000000000000000E2 /* KeychainBox.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F1700000000000000000D2 /* KeychainBox.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A1F170000000000000000003 /* Fitty.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fitty.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1F170000000000000000020 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A1F170000000000000000021 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1F170000000000000000022 /* Fitty-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Fitty-Bridging-Header.h"; sourceTree = "<group>"; };
+		A1F170000000000000000023 /* FittyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FittyApp.swift; sourceTree = "<group>"; };
+		A1F170000000000000000024 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A1F170000000000000000025 /* ARViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARViewController.swift; sourceTree = "<group>"; };
+		A1F170000000000000000026 /* ClothSimulationComponent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClothSimulationComponent.swift; sourceTree = "<group>"; };
+		A1F170000000000000000027 /* BodyCapsuleRig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyCapsuleRig.swift; sourceTree = "<group>"; };
+		A1F170000000000000000028 /* ClothMeshEntity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClothMeshEntity.swift; sourceTree = "<group>"; };
+		A1F170000000000000000029 /* SimulationStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulationStatus.swift; sourceTree = "<group>"; };
+		A1F17000000000000000002A /* ClothSolver.hpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.h; path = ClothSolver.hpp; sourceTree = "<group>"; };
+		A1F17000000000000000002B /* ClothSolver.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ClothSolver.cpp; sourceTree = "<group>"; };
+		A1F17000000000000000002C /* ClothSolverBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ClothSolverBridge.h; sourceTree = "<group>"; };
+		A1F17000000000000000002D /* ClothSolverBridge.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ClothSolverBridge.mm; sourceTree = "<group>"; };
+		A1F170000000000000000050 /* ARKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ARKit.framework; path = System/Library/Frameworks/ARKit.framework; sourceTree = SDKROOT; };
+		A1F170000000000000000052 /* RealityKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = RealityKit.framework; path = System/Library/Frameworks/RealityKit.framework; sourceTree = SDKROOT; };
+		A1F170000000000000000054 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		A1F170000000000000000060 /* FittyTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FittyTheme.swift; sourceTree = "<group>"; };
+		A1F170000000000000000061 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		A1F170000000000000000062 /* ScanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanView.swift; sourceTree = "<group>"; };
+		A1F170000000000000000063 /* GarmentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarmentStore.swift; sourceTree = "<group>"; };
+		A1F170000000000000000064 /* GarmentIsolator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GarmentIsolator.swift; sourceTree = "<group>"; };
+		A1F170000000000000000065 /* PhotoPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPicker.swift; sourceTree = "<group>"; };
+		A1F170000000000000000066 /* CameraCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapture.swift; sourceTree = "<group>"; };
+		A1F170000000000000000080 /* Vision.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Vision.framework; path = System/Library/Frameworks/Vision.framework; sourceTree = SDKROOT; };
+		A1F170000000000000000082 /* PhotosUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PhotosUI.framework; path = System/Library/Frameworks/PhotosUI.framework; sourceTree = SDKROOT; };
+		A1F170000000000000000084 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+		A1F170000000000000000090 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		A1F170000000000000000091 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		A1F170000000000000000092 /* WardrobeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WardrobeView.swift; sourceTree = "<group>"; };
+		A1F170000000000000000093 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A1F170000000000000000094 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		A1F170000000000000000095 /* ToastCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastCenter.swift; sourceTree = "<group>"; };
+		A1F170000000000000000096 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		A1F170000000000000000097 /* ImageIOSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageIOSupport.swift; sourceTree = "<group>"; };
+		A1F170000000000000000098 /* ClipRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipRecorder.swift; sourceTree = "<group>"; };
+		A1F1700000000000000000C0 /* ReplayKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ReplayKit.framework; path = System/Library/Frameworks/ReplayKit.framework; sourceTree = SDKROOT; };
+		A1F1700000000000000000C2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A1F1700000000000000000C3 /* ko */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ko; path = ko.lproj/Localizable.strings; sourceTree = "<group>"; };
+		D0F1A1000000000000000001 /* DeviceProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceProfile.swift; sourceTree = "<group>"; };
+		A1F1700000000000000000D0 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		A1F1700000000000000000D1 /* AuthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthStore.swift; sourceTree = "<group>"; };
+		A1F1700000000000000000D2 /* KeychainBox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainBox.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
