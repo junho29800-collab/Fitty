@@ -23,7 +23,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Fitty uses the camera to capture your body in AR so clothing can drape on you in real time.</string>
+	<string>Fitty uses the camera to scan a piece of clothing and to capture your body in AR so the garment can drape on you in real time.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
