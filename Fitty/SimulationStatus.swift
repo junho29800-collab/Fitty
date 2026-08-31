@@ -16,4 +16,5 @@ final class SimulationStatus: ObservableObject {
     @Published var particleCount: Int = 0
     @Published var bodyPresent: Bool = false
     @Published var detail: String = ""
+    @Published var qualityLabel: String = "24×32"
 }
