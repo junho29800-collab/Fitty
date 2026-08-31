@@ -89,6 +89,37 @@ struct BoxyPanel<Content: View>: View {
     }
 }
 
+/// 44 pt ink/accent rectangle that flips. Not SwiftUI Toggle.
+struct BoxySwitch: View {
+    let title: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Button {
+            isOn.toggle()
+        } label: {
+            HStack(spacing: 12) {
+                Text(title)
+                    .font(.system(.body, design: .default).weight(.semibold))
+                    .foregroundStyle(FittyTheme.ink)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .dynamicTypeSize(.xSmall ... .accessibility3)
+                Rectangle()
+                    .fill(isOn ? FittyTheme.accent : FittyTheme.ink)
+                    .frame(width: 44, height: 44)
+                    .overlay(Rectangle().stroke(FittyTheme.ink, lineWidth: FittyTheme.stroke))
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityValue(isOn ? L10n.t("settings.switchOn") : L10n.t("settings.switchOff"))
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
 /// Boxy L-shaped reticle ticks (not a rounded oval).
 struct ReticleTicks: View {
     var length: CGFloat = 22
