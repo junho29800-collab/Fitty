@@ -90,7 +90,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(L10n.t(\"home.emptyTitle\")). \(L10n.t(\"home.emptyBody\"))")
+        .accessibilityLabel(L10n.t("home.emptyTitle") + ". " + L10n.t("home.emptyBody"))
     }
 
     private func lastScanCard(garment: Garment, thumb: UIImage) -> some View {
@@ -134,6 +134,6 @@ struct HomeView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(L10n.t(\"home.lastScan\")), \(garment.name), \(L10n.t(\"a11y.tryOn\"))")
+        .accessibilityLabel(L10n.t("home.lastScan") + ", " + garment.name + ", " + L10n.t("a11y.tryOn"))
     }
 }
