@@ -44,7 +44,7 @@ enum FabricPreset: String, CaseIterable, Identifiable {
 }
 
 /// Kind changes pinning. Tee/hoodie: shoulder row. Pants: hip row kinematic.
-/// Dress: shoulders + longer V. Tank: narrower U.
+/// Dress: shoulders + longer V. Tank: two strap bands (narrow left+right cols).
 enum GarmentKind: String, CaseIterable, Identifiable {
     case tee, tank, hoodie, dress, pants
     var id: String { rawValue }
@@ -208,33 +208,27 @@ final class AppSettings: ObservableObject {
     var appVersion: String { "0.2.0" }
 
     init() {
-        func str(_ k: String, _ fallback: String) -> String {
-            d.string(forKey: k) ?? fallback
-        }
+        let ud = UserDefaults.standard
         let fallbackQ = UIDevice.current.userInterfaceIdiom == .phone ? "low" : "med"
-        quality = SimQuality(rawValue: str("fitty.quality", fallbackQ)) ?? (fallbackQ == "low" ? .low : .med)
-        hapticsEnabled = d.object(forKey: "fitty.haptics") as? Bool ?? true
-        units = AppUnits(rawValue: str("fitty.units", "centimeters")) ?? .centimeters
-        language = AppLanguage(rawValue: str("fitty.language", "device")) ?? .device
-        debugOverlay = d.bool(forKey: "fitty.debug")
-        fabricDefault = FabricPreset(rawValue: str("fitty.fabricDefault", "cotton")) ?? .cotton
-        lastFabric = FabricPreset(rawValue: str("fitty.lastFabric", fabricDefault.rawValue)) ?? fabricDefault
-        lastSize = GarmentSize(rawValue: str("fitty.lastSize", "m")) ?? .m
-        scanCountdown = d.bool(forKey: "fitty.countdown")
-        onboardingDone = d.bool(forKey: "fitty.onboardingDone")
-        let h = d.integer(forKey: "fitty.heightCm")
+        quality = SimQuality(rawValue: ud.string(forKey: "fitty.quality") ?? fallbackQ) ?? (fallbackQ == "low" ? .low : .med)
+        hapticsEnabled = ud.object(forKey: "fitty.haptics") as? Bool ?? true
+        units = AppUnits(rawValue: ud.string(forKey: "fitty.units") ?? "centimeters") ?? .centimeters
+        language = AppLanguage(rawValue: ud.string(forKey: "fitty.language") ?? "device") ?? .device
+        debugOverlay = ud.bool(forKey: "fitty.debug")
+        let fabric = FabricPreset(rawValue: ud.string(forKey: "fitty.fabricDefault") ?? "cotton") ?? .cotton
+        fabricDefault = fabric
+        lastFabric = FabricPreset(rawValue: ud.string(forKey: "fitty.lastFabric") ?? fabric.rawValue) ?? fabric
+        lastSize = GarmentSize(rawValue: ud.string(forKey: "fitty.lastSize") ?? "m") ?? .m
+        scanCountdown = ud.bool(forKey: "fitty.countdown")
+        onboardingDone = ud.bool(forKey: "fitty.onboardingDone")
+        let h = ud.integer(forKey: "fitty.heightCm")
         heightCm = h == 0 ? 170 : min(200, max(150, h))
-        let len = d.object(forKey: "fitty.fitLength") as? Float
-        fitLength = len ?? 1
-        let tight = d.object(forKey: "fitty.fitTightness") as? Float
-        fitTightness = tight ?? 1
-        let drape = d.object(forKey: "fitty.fitDrape") as? Float
-        fitDrape = drape ?? 1
-        let wind = d.object(forKey: "fitty.windStrength") as? Float
-        windStrength = wind ?? 0
-        let ang = d.object(forKey: "fitty.windAngle") as? Float
-        windAngle = ang ?? 0
-        wardrobeSort = WardrobeSort(rawValue: str("fitty.wardrobeSort", "newest")) ?? .newest
+        fitLength = (ud.object(forKey: "fitty.fitLength") as? Float) ?? 1
+        fitTightness = (ud.object(forKey: "fitty.fitTightness") as? Float) ?? 1
+        fitDrape = (ud.object(forKey: "fitty.fitDrape") as? Float) ?? 1
+        windStrength = (ud.object(forKey: "fitty.windStrength") as? Float) ?? 0
+        windAngle = (ud.object(forKey: "fitty.windAngle") as? Float) ?? 0
+        wardrobeSort = WardrobeSort(rawValue: ud.string(forKey: "fitty.wardrobeSort") ?? "newest") ?? .newest
     }
 
     func resetOnboarding() {
