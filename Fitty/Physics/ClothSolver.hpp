@@ -1,6 +1,6 @@
 #pragma once
 
-// ClothSolver — explicit Position Based Dynamics (PBD) for a regular garment grid.
+// ClothSolver — Position Based Dynamics (PBD) + XPBD stretch on a regular garment grid.
 //
 // Unit system: meters, seconds. Positions live in ARKit world space (Y-up, right-handed),
 // the same frame as ARBodyAnchor.transform * skeleton.modelTransform(for:). Gravity is
@@ -13,18 +13,35 @@
 //   * Verlet integration stores velocity implicitly as (x - x_prev), so we never integrate
 //     an explicit v that can explode when a constraint suddenly becomes satisfied.
 //
-// Constraint roles:
-//   * Structural (grid edges)  — resist stretch. Fabric should not grow under gravity.
-//   * Shear (grid diagonals)   — resist parallelogram collapse in the plane of the cloth.
-//   * Bending (skip-one edges) — resist folding. Softer than stretch so the sheet drapes
-//     rather than acting like a stiff plate. Skip-one springs are cheaper and more stable
-//     than dihedral constraints at this particle count; they do not encode a rest angle,
-//     which is acceptable for a thin garment patch.
+// XPBD stretch (Macklin / Müller 2016):
+//   Structural (warp/weft) constraints use extended PBD with compliance α
+//   (setXPBDCompliance). The multiplier is α̃ = α / Δt². Position correction is
+//     Δλ = (−C − α̃ λ) / (w + α̃),  x += w_i ∇C Δλ
+//   with λ accumulated across Gauss–Seidel iterations of a substep and reset each
+//   substep. α = 0 recovers a hard constraint (iteration-count independent when
+//   the system is solvable). α > 0 makes stretch stiffness a material property
+//   instead of an iteration-count artifact. Shear and bend stay classic PBD so
+//   drape still folds. Keep α in roughly [0, 5e-4]; larger values are silk-floppy
+//   and remain stable at dt = 1/30.
 //
-// Collision: finite capsules (segment + radius) built from ARSkeleton3D joints. A point
-// inside a capsule is pushed to the surface along the shortest vector. Capsules are a
-// cheap inner approximation of the body; they will not capture chest/breast/glute detail
-// (an SDF or mesh collider is the next step).
+// Constraint roles:
+//   * Structural (grid edges)  — XPBD stretch. Fabric should not grow under gravity.
+//   * Shear (grid diagonals)   — classic PBD. Resist parallelogram collapse.
+//   * Bending (skip-one edges) — classic PBD. Softer than stretch so the sheet drapes.
+//
+// Collision:
+//   * Finite capsules (segment + radius) from ARSkeleton3D joints.
+//   * Volume ellipsoids (chest + hip) so the sheet sits on the torso, not in it.
+//   * Self-collision via a spatial hash: non-adjacent particles closer than
+//     0.7 * spacing are separated. Skipped when particle count > 1600.
+//   * Arm pins: left/right side-column particles are softly attracted to upper-arm
+//     capsules. This is a SLEEVE APPROXIMATION — there is no second sleeve mesh.
+//
+// Pinning (PinMode):
+//   Tee / Hoodie — kinematic shoulder (top) row.
+//   Tank         — kinematic shoulder row, narrower U (0.78× half-width).
+//   Dress        — kinematic shoulder row, longer V (1.45×).
+//   Pants        — kinematic HIP row (row 0 placed on the hip line, hanging down).
 //
 // Threading: this class is NOT thread-safe. The ObjC++ bridge owns a serial queue and
 // must call every method from that one thread. No exceptions are thrown.
@@ -78,16 +95,36 @@ struct Capsule {
     float radius = 0.05f;
 };
 
+// Oriented ellipsoid. Packed as 12 floats:
+//   cx, cy, cz, rx, ry, rz, ux, uy, uz, vx, vy, vz
+// where (u, v, u×v) is the local frame and (rx, ry, rz) are half-axes in meters.
+struct Ellipsoid {
+    Vec3 center;
+    Vec3 radii{0.12f, 0.10f, 0.10f};
+    Vec3 axisU{1.f, 0.f, 0.f};
+    Vec3 axisV{0.f, 1.f, 0.f};
+    Vec3 axisW{0.f, 0.f, 1.f};
+};
+
+enum class PinMode : int {
+    Tee = 0,
+    Tank = 1,
+    Hoodie = 2,
+    Dress = 3,
+    Pants = 4
+};
+
 struct ClothConfig {
     float particleMass = 0.02f;          // kg. Ratios matter for mixed kinematic/dynamic; gravity is mass-independent in Verlet.
     float damping = 0.04f;               // dimensionless velocity bleed per substep (0 = none, 1 = freeze).
     float gravityY = -9.81f;             // m/s², ARKit Y-up.
-    float structuralStiffness = 1.00f;   // [0,1] stretch projection weight.
+    float structuralStiffness = 1.00f;   // [0,1] stretch projection weight (classic PBD path / XPBD mix).
     float shearStiffness = 0.85f;        // [0,1] in-plane shear.
     float bendStiffness = 0.35f;         // [0,1] skip-one bending; keep below stretch so the sheet folds.
     float collisionFriction = 0.35f;     // [0,1] tangential damping against capsules.
     int solverIterations = 12;           // projections per substep. 8–16 is the useful range on-device.
     int substeps = 2;                    // fixed-dt slices per call to step().
+    float xpbdCompliance = 1.0e-5f;      // stretch α (m/N). 0 = hard XPBD. Silk ~2e-4, denim ~1e-6.
 };
 
 class ClothSolver {
@@ -112,10 +149,54 @@ public:
     void setPhotoAspect(float widthOverHeight);
     float photoAspect() const { return photoAspect_; }
 
+    // World-space wind in m/s², applied in Verlet as extra acceleration plus mild
+    // per-particle hash noise (amplitude ~0.15 * |wind|).
+    void setWind(const Vec3& wind);
+    Vec3 wind() const { return wind_; }
+
+    // XPBD stretch compliance α. See file header.
+    void setXPBDCompliance(float alpha);
+
+    // Cheap self-collision. Off or huge particle counts skip the hash.
+    void enableSelfCollision(bool on);
+    bool selfCollisionEnabled() const { return selfCollision_; }
+
+    // Packed ellipsoids: 12 floats each (see Ellipsoid). Chest + hip volumes.
+    void setVolumeEllipsoids(const float* packed, int count);
+
+    // Upper-arm capsules (7 floats each) for the sleeve approximation.
+    void setArmCapsules(const float* packed, int count);
+
+    // Rebuild the grid (Low / Med / High quality). Restarts the default T-pose
+    // garment; the Swift side should call initializeGarment with the live pose.
+    void setQuality(int width, int height, float spacing);
+
+    void setPinMode(PinMode mode);
+    PinMode pinMode() const { return pinMode_; }
+
+    // Uniform scale on rest garment width/length (XS–XXL). Clamped [0.72, 1.40].
+    void setSizeScale(float scale);
+    float sizeScale() const { return sizeScale_; }
+
+    // Fit sliders. length = V scale, tightness = U scale AND stretch mix, drape = bend mix.
+    // Applied live (no topology rebuild). Length/tightness take effect on the next
+    // initializeGarment; tightness also scales structural stiffness immediately;
+    // drape scales bend stiffness immediately.
+    void setFit(float length, float tightness, float drape);
+
+    // Height calibration. Scales rest garment size (capsule radii are scaled on the
+    // Swift side before packing). Clamped [0.80, 1.25] around a 170 cm reference.
+    void setBodyScale(float scale);
+
+    // Test/debug: overwrite one particle. Does not change invMass.
+    void setParticlePosition(int index, const Vec3& x);
+    int indexOf(int col, int row) const { return row * width_ + col; }
+
     // Place a rectangular garment patch spanning shoulders → hips, offset slightly along
     // the chest-forward axis so it starts in front of the torso and drapes under gravity
     // + collision rather than spawning inside the body. Top-row particles become kinematic
-    // anchors that follow the shoulder line (updated via updateShoulderAnchors).
+    // anchors that follow the shoulder line (updated via updateShoulderAnchors), except
+    // pants which pin the hip line.
     //
     // All four points are ARKit world-space meters.
     void initializeGarment(const Vec3& leftShoulder,
@@ -124,8 +205,8 @@ public:
                            const Vec3& rightHip,
                            const Vec3& preferToward);
 
-    // Reposition the kinematic top row between the current shoulder world positions.
-    // Call every frame before step() so the garment stays attached as the body moves.
+    // Reposition the kinematic top row between the current shoulder (or hip, for pants)
+    // world positions. Call every frame before step() so the garment stays attached.
     void updateShoulderAnchors(const Vec3& leftShoulder,
                                const Vec3& rightShoulder,
                                const Vec3& preferToward);
@@ -136,12 +217,13 @@ public:
     void step(float dt);
 
     // Tightly packed xyz (3 * particleCount floats). Pointers remain valid until the next
-    // initializeGarment(). Never returns null after construction.
+    // initializeGarment() or setQuality(). Never returns null after construction.
     const float* positions() const { return positions_.data(); }
     const float* normals() const { return normals_.data(); }
     int particleCount() const { return width_ * height_; }
     int width() const { return width_; }
     int height() const { return height_; }
+    float spacing() const { return spacing_; }
 
     const std::uint32_t* indices() const { return indices_.data(); }
     int indexCount() const { return static_cast<int>(indices_.size()); }
@@ -151,22 +233,31 @@ private:
         Vec3 x;
         Vec3 prev;
         float invMass = 1.f; // 0 = kinematic (infinite mass).
+        int col = 0;
+        int row = 0;
     };
+
+    enum ConstraintKind : int { kStretch = 0, kShear = 1, kBend = 2 };
 
     struct DistanceConstraint {
         int i = 0;
         int j = 0;
         float rest = 0.f;
-        float stiffness = 1.f; // [0,1]
+        float stiffness = 1.f; // [0,1] classic PBD weight tag
+        float lambda = 0.f;    // XPBD multiplier (stretch only)
+        int kind = kStretch;
     };
 
-    int indexOf(int col, int row) const { return row * width_ + col; }
-
+    void rebuildBuffers(int width, int height, float spacing);
     void buildTopology(float spacing);
-    void projectDistanceConstraints();
+    void projectDistanceConstraints(float subDt);
     void collideCapsules();
+    void collideEllipsoids();
+    void collideSelf();
+    void applyArmPins();
     void recomputeNormals();
-    void applyKinematicTopRow();
+    void applyKinematicPins();
+    void placeKinematicRow(const Vec3& left, const Vec3& right, const Vec3& preferToward, float offset);
 
     int width_ = 0;
     int height_ = 0;
@@ -179,13 +270,31 @@ private:
     std::vector<std::uint32_t> indices_;    // triangle list, preallocated
     std::vector<DistanceConstraint> constraints_;
     std::vector<Capsule> capsules_;
+    std::vector<Ellipsoid> ellipsoids_;
+    std::vector<Capsule> armCapsules_;
+
+    // Spatial hash scratch (self-collision). Reused every step, no heap churn after grow.
+    std::vector<int> hashHead_;
+    std::vector<int> hashNext_;
 
     // Cached garment frame so the top row can be re-anchored without a full reset.
     Vec3 garmentForward_{0.f, 0.f, 1.f};
     Vec3 preferToward_{0.f, 1.5f, 0.f};
+    Vec3 lastLeft_{0.f, 1.45f, -2.f};
+    Vec3 lastRight_{0.f, 1.45f, -2.f};
     float garmentHalfWidth_ = 0.2f;
     float photoAspect_ = 0.f;
     bool garmentReady_ = false;
+
+    Vec3 wind_{0.f, 0.f, 0.f};
+    bool selfCollision_ = true;
+    PinMode pinMode_ = PinMode::Tee;
+    float sizeScale_ = 1.f;
+    float lengthScale_ = 1.f;
+    float tightness_ = 1.f;
+    float drape_ = 1.f;
+    float bodyScale_ = 1.f;
+    float simTime_ = 0.f;
 };
 
 } // namespace fitty
