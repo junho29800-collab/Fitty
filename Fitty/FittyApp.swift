@@ -4,6 +4,7 @@ import SwiftUI
 struct FittyApp: App {
     @StateObject private var store = GarmentStore()
     @StateObject private var settings = AppSettings.shared
+    @StateObject private var auth = AuthStore.shared
     @StateObject private var device = DeviceProfile.shared
     @State private var path: [FittyRoute] = []
     @Environment(\.scenePhase) private var scenePhase
@@ -13,11 +14,15 @@ struct FittyApp: App {
             root
                 .environmentObject(store)
                 .environmentObject(settings)
+                .environmentObject(auth)
                 .environmentObject(device)
                 .tint(FittyTheme.ink)
                 .preferredColorScheme(.light)
                 .onChange(of: scenePhase) { _, phase in
                     device.setForeground(phase == .active)
+                }
+                .onChange(of: auth.sessionEmail) { _, email in
+                    if email == nil { path = [] }
                 }
                 .onAppear {
                     device.setForeground(true)
@@ -28,7 +33,9 @@ struct FittyApp: App {
     @ViewBuilder
     private var root: some View {
         ZStack {
-            if !settings.onboardingDone {
+            if auth.sessionEmail == nil {
+                AuthView()
+            } else if !settings.onboardingDone {
                 OnboardingView { }
             } else {
                 NavigationStack(path: $path) {
