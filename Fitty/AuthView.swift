@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// First-launch gate. Login / Sign up before onboarding or Home.
-/// Google and Apple are visible but disabled — no fake OAuth.
+/// Google and Apple are visible but disabled.
 struct AuthView: View {
     @EnvironmentObject var auth: AuthStore
     @State private var mode: Mode = .login
@@ -29,21 +29,16 @@ struct AuthView: View {
                                 .dynamicTypeSize(.xSmall ... .accessibility3)
                         }
                         .padding(.top, 12)
-
                         modeSwitcher
-
                         emailField
                         passwordField
                         if mode == .signup { confirmField }
-
                         Button(mode == .login ? L10n.t("auth.submitLogin") : L10n.t("auth.submitSignup")) {
                             submit()
                         }
                         .buttonStyle(BoxyButtonStyle(kind: .primary))
                         .accessibilityLabel(mode == .login ? L10n.t("a11y.login") : L10n.t("a11y.signup"))
-
                         comingSoonRow
-
                         Spacer(minLength: 24)
                     }
                     .padding(.horizontal, 24)
@@ -65,21 +60,17 @@ struct AuthView: View {
             modeButton(L10n.t("auth.signup"), .signup)
         }
         .overlay(Rectangle().stroke(FittyTheme.ink, lineWidth: FittyTheme.stroke))
-        .accessibilityElement(children: .contain)
     }
 
     private func modeButton(_ title: String, _ m: Mode) -> some View {
-        Button(title) {
-            mode = m
-            confirm = ""
-        }
-        .font(.system(.subheadline, design: .default).weight(.semibold))
-        .foregroundStyle(FittyTheme.ink)
-        .frame(maxWidth: .infinity)
-        .frame(minHeight: 44)
-        .background(mode == m ? FittyTheme.accent : FittyTheme.canvas)
-        .accessibilityLabel(title)
-        .accessibilityAddTraits(mode == m ? .isSelected : [])
+        Button(title) { mode = m; confirm = "" }
+            .font(.system(.subheadline, design: .default).weight(.semibold))
+            .foregroundStyle(FittyTheme.ink)
+            .frame(maxWidth: .infinity)
+            .frame(minHeight: 44)
+            .background(mode == m ? FittyTheme.accent : FittyTheme.canvas)
+            .accessibilityLabel(title)
+            .accessibilityAddTraits(mode == m ? .isSelected : [])
     }
 
     private var emailField: some View {
@@ -101,9 +92,7 @@ struct AuthView: View {
                 .textContentType(mode == .signup ? .newPassword : .password)
                 .submitLabel(mode == .signup ? .next : .go)
                 .focused($focus, equals: .password)
-                .onSubmit {
-                    if mode == .signup { focus = .confirm } else { submit() }
-                }
+                .onSubmit { if mode == .signup { focus = .confirm } else { submit() } }
         }
     }
 
@@ -157,7 +146,7 @@ struct AuthView: View {
         .background(FittyTheme.canvas)
         .overlay(BoxyShape().stroke(FittyTheme.ink.opacity(0.35), lineWidth: FittyTheme.stroke))
         .disabled(true)
-        .accessibilityLabel("\(title), \(L10n.t(\"auth.comingSoon\"))")
+        .accessibilityLabel(title + ", " + L10n.t("auth.comingSoon"))
     }
 
     private func submit() {
@@ -168,9 +157,7 @@ struct AuthView: View {
         } else {
             err = auth.signUp(email: email, password: password, confirm: confirm)
         }
-        if let err {
-            ToastCenter.shared.show(err)
-        }
+        if let err { ToastCenter.shared.show(err) }
         password = ""
         confirm = ""
     }
