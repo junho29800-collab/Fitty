@@ -7,6 +7,7 @@ import UIKit
 final class CameraHostController: UIViewController, AVCapturePhotoCaptureDelegate {
     var onCapture: ((UIImage) -> Void)?
     var onAvailability: ((Bool) -> Void)?
+    var onDenied: (() -> Void)?
     private(set) var lastShutterToken = 0
 
     private let session = AVCaptureSession()
@@ -60,6 +61,25 @@ final class CameraHostController: UIViewController, AVCapturePhotoCaptureDelegat
     }
 
     private func configureSession() {
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        if status == .denied || status == .restricted {
+            DispatchQueue.main.async { self.onDenied?() }
+            return
+        }
+        if status == .notDetermined {
+            AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                if granted {
+                    self?.sessionQueue.async { self?.finishConfigure() }
+                } else {
+                    DispatchQueue.main.async { self?.onDenied?() }
+                }
+            }
+            return
+        }
+        finishConfigure()
+    }
+
+    private func finishConfigure() {
         session.beginConfiguration()
         session.sessionPreset = .photo
         guard
@@ -95,17 +115,20 @@ struct CameraViewfinder: UIViewControllerRepresentable {
     var shutterToken: Int
     var onCapture: (UIImage) -> Void
     var onAvailability: (Bool) -> Void
+    var onDenied: () -> Void = {}
 
     func makeUIViewController(context: Context) -> CameraHostController {
         let host = CameraHostController()
         host.onCapture = onCapture
         host.onAvailability = onAvailability
+        host.onDenied = onDenied
         return host
     }
 
     func updateUIViewController(_ uiViewController: CameraHostController, context: Context) {
         uiViewController.onCapture = onCapture
         uiViewController.onAvailability = onAvailability
+        uiViewController.onDenied = onDenied
         uiViewController.fireShutter(token: shutterToken)
     }
 }
