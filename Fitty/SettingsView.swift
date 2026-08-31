@@ -3,18 +3,20 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
     @EnvironmentObject var device: DeviceProfile
+    @EnvironmentObject var auth: AuthStore
 
     var body: some View {
         ZStack {
             FittyTheme.canvas.ignoresSafeArea()
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
+                    accountPanel
                     qualityPanel
                     togglesPanel
                     prefsPanel
                     heightPanel
                     resetPanel
-                    Text("\(L10n.t("settings.version")) \(settings.appVersion)")
+                    Text(L10n.t("settings.version") + " " + settings.appVersion)
                         .font(.system(.footnote, design: .default))
                         .foregroundStyle(FittyTheme.mutedInk)
                         .frame(maxWidth: .infinity)
@@ -33,6 +35,25 @@ struct SettingsView: View {
         .preferredColorScheme(.light)
     }
 
+    private var accountPanel: some View {
+        BoxyPanel {
+            VStack(alignment: .leading, spacing: 10) {
+                sectionLabel(L10n.t("settings.account"))
+                if let email = auth.sessionEmail {
+                    Text(email)
+                        .font(.system(.body, design: .default))
+                        .foregroundStyle(FittyTheme.ink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Button(L10n.t("auth.logout")) {
+                    auth.logOut()
+                }
+                .buttonStyle(BoxyButtonStyle(kind: .secondary))
+                .accessibilityLabel(L10n.t("auth.logout"))
+            }
+        }
+    }
+
     private var qualityPanel: some View {
         BoxyPanel {
             VStack(alignment: .leading, spacing: 10) {
@@ -49,10 +70,10 @@ struct SettingsView: View {
                 Text(L10n.t("settings.qualityHint"))
                     .font(.system(.caption, design: .default))
                     .foregroundStyle(FittyTheme.mutedInk)
-                Text("\(L10n.t("settings.qualityLive")): \(L10n.t(device.effectiveQuality(user: settings.quality).locKey))")
+                Text(L10n.t("settings.qualityLive") + ": " + L10n.t(device.effectiveQuality(user: settings.quality).locKey))
                     .font(.system(.caption, design: .default))
                     .foregroundStyle(FittyTheme.ink)
-                Text("\(L10n.t("settings.thermal")): \(L10n.t(device.thermalLabelKey))")
+                Text(L10n.t("settings.thermal") + ": " + L10n.t(device.thermalLabelKey))
                     .font(.system(.caption, design: .default))
                     .foregroundStyle(FittyTheme.ink)
                 if device.isLowPower {
@@ -162,7 +183,7 @@ struct SettingsView: View {
         if settings.units == .meters {
             return String(format: "%.2f m", Double(settings.heightCm) / 100.0)
         }
-        return "\(settings.heightCm) cm"
+        return String(settings.heightCm) + " cm"
     }
 
     private func sectionLabel(_ title: String) -> some View {
