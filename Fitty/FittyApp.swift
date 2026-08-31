@@ -5,7 +5,6 @@ struct FittyApp: App {
     @StateObject private var store = GarmentStore()
     @StateObject private var settings = AppSettings.shared
     @StateObject private var device = DeviceProfile.shared
-    @StateObject private var auth = AuthStore.shared
     @State private var path: [FittyRoute] = []
     @Environment(\.scenePhase) private var scenePhase
 
@@ -15,7 +14,6 @@ struct FittyApp: App {
                 .environmentObject(store)
                 .environmentObject(settings)
                 .environmentObject(device)
-                .environmentObject(auth)
                 .tint(FittyTheme.ink)
                 .preferredColorScheme(.light)
                 .onChange(of: scenePhase) { _, phase in
@@ -30,9 +28,7 @@ struct FittyApp: App {
     @ViewBuilder
     private var root: some View {
         ZStack {
-            if auth.sessionEmail == nil {
-                AuthView()
-            } else if !settings.onboardingDone {
+            if !settings.onboardingDone {
                 OnboardingView { }
             } else {
                 NavigationStack(path: $path) {
