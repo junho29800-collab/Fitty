@@ -5,6 +5,8 @@ struct HomeView: View {
     @EnvironmentObject var settings: AppSettings
     @Binding var path: [FittyRoute]
 
+    private var wardrobeEmpty: Bool { store.garments.isEmpty }
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -63,11 +65,24 @@ struct HomeView: View {
                             .buttonStyle(BoxyButtonStyle(kind: .primary))
                             .accessibilityLabel(L10n.t("a11y.scan"))
 
-                        Button(store.selected == nil ? L10n.t("home.tryOnEmpty") : L10n.t("home.tryOn")) {
-                            path.append(.tryOn)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Button(L10n.t("home.tryOn")) {
+                                guard !wardrobeEmpty else { return }
+                                path.append(.tryOn)
+                            }
+                            .buttonStyle(BoxyButtonStyle(kind: .secondary))
+                            .disabled(wardrobeEmpty)
+                            .opacity(wardrobeEmpty ? 0.4 : 1)
+                            .accessibilityLabel(wardrobeEmpty ? L10n.t("a11y.tryOnEmpty") : L10n.t("a11y.tryOn"))
+                            .accessibilityHint(wardrobeEmpty ? L10n.t("home.tryOnEmpty") : "")
+
+                            if wardrobeEmpty {
+                                Text(L10n.t("home.tryOnEmpty"))
+                                    .font(.system(.caption, design: .default))
+                                    .foregroundStyle(FittyTheme.mutedInk)
+                                    .dynamicTypeSize(.xSmall ... .accessibility3)
+                            }
                         }
-                        .buttonStyle(BoxyButtonStyle(kind: .secondary))
-                        .accessibilityLabel(L10n.t("a11y.tryOn"))
 
                         HStack(spacing: 10) {
                             Button(L10n.t("home.wardrobe")) { path.append(.wardrobe) }
