@@ -42,6 +42,7 @@ enum BoxyKind {
 struct BoxyButtonStyle: ButtonStyle {
     var kind: BoxyKind = .secondary
     var compact: Bool = false
+    var minHeight: CGFloat = 44
 
     func makeBody(configuration: Configuration) -> some View {
         let fill: Color
@@ -65,8 +66,9 @@ struct BoxyButtonStyle: ButtonStyle {
             .font(.system(compact ? .subheadline : .body, design: .default).weight(.semibold))
             .foregroundStyle(fg)
             .padding(.horizontal, compact ? 12 : 16)
-            .padding(.vertical, compact ? 8 : 12)
+            .padding(.vertical, compact ? 10 : 12)
             .frame(maxWidth: .infinity)
+            .frame(minHeight: minHeight)
             .background(fill)
             .clipShape(BoxyShape())
             .overlay(BoxyShape().stroke(stroke, lineWidth: FittyTheme.stroke))
@@ -91,19 +93,21 @@ struct BoxyPanel<Content: View>: View {
 struct ReticleTicks: View {
     var length: CGFloat = 22
     var inset: CGFloat = 28
+    var extraTop: CGFloat = 0
 
     var body: some View {
         GeometryReader { geo in
             let r = geo.frame(in: .local).insetBy(dx: inset, dy: inset)
+            let top = r.minY + extraTop
             Path { p in
                 // TL
-                p.move(to: CGPoint(x: r.minX, y: r.minY + length))
-                p.addLine(to: CGPoint(x: r.minX, y: r.minY))
-                p.addLine(to: CGPoint(x: r.minX + length, y: r.minY))
+                p.move(to: CGPoint(x: r.minX, y: top + length))
+                p.addLine(to: CGPoint(x: r.minX, y: top))
+                p.addLine(to: CGPoint(x: r.minX + length, y: top))
                 // TR
-                p.move(to: CGPoint(x: r.maxX - length, y: r.minY))
-                p.addLine(to: CGPoint(x: r.maxX, y: r.minY))
-                p.addLine(to: CGPoint(x: r.maxX, y: r.minY + length))
+                p.move(to: CGPoint(x: r.maxX - length, y: top))
+                p.addLine(to: CGPoint(x: r.maxX, y: top))
+                p.addLine(to: CGPoint(x: r.maxX, y: top + length))
                 // BL
                 p.move(to: CGPoint(x: r.minX, y: r.maxY - length))
                 p.addLine(to: CGPoint(x: r.minX, y: r.maxY))
