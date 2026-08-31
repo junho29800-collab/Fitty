@@ -2,22 +2,23 @@
 
 True-physics AR clothing fitter. Scan a real garment (front, optional back), keep a wardrobe of up to 30 pieces on this device, and drape the photo on a C++ PBD/XPBD cloth sheet over ARKit body tracking.
 
-There is no catalog of other people's clothes, no accounts, no networking, and no payments. Physics never runs on the main thread (`com.junholee.Fitty.pbd`).
+There is no catalog of other people’s clothes, no networking, no payments, and no accounts. Physics never runs on the main thread (`com.junholee.Fitty.pbd`).
 
-The project was authored on Linux and **has not been compiled on a Mac**. Open `Fitty.xcodeproj` in Xcode 16+ (iOS 18 SDK, deployment 17.0), pick a development team, and build. Simulator: Home → Scan → **Choose photo** → kind picker → Try on (T-pose debug rig).
+The project was authored on Linux and **has not been compiled on a Mac**. Open `Fitty.xcodeproj` in Xcode 16+ (iOS 18 SDK, deployment 17.0), pick a development team, and build. Simulator: Onboarding (if needed) → Home → Scan → **Choose photo** → kind picker → Try on (T-pose debug rig). Try on is disabled until a garment is scanned.
 
 **Version 0.2.0.**
 
 ## Product flow
 
 ```
+Onboarding (first launch: 3 boxy pages, skip / don’t show again)
 Home (cream canvas)
-  ├─ Onboarding (first launch, 3 boxy pages, skip / don't show again)
   ├─ Scan clothing  → camera / PHPicker, optional 3-2-1, front then optional back
   │                    Vision subject lift → kind picker → Documents/Garments/<uuid>/
   ├─ Wardrobe       → select, rename, notes, kind, delete, sort, Front / Front+Back badge
-  ├─ Settings       → quality, haptics, units, language, debug, fabric default, height
+  ├─ Settings       → quality, haptics, countdown, debug, units, language, fabric, height
   └─ Try on         → AR + PBD/XPBD, fabric / size / wind / fit, snapshot, ReplayKit clip, A/B
+                       (disabled on Home until the wardrobe has a scan)
 ```
 
 ## 25 big features
@@ -91,7 +92,8 @@ Buttons: `RoundedRectangle(cornerRadius: 2)`, 2 pt ink or accent stroke, pressed
 ## Architecture
 
 ```
-SwiftUI (Home / Scan / Wardrobe / Settings / Try-on HUD)
+SwiftUI (Onboarding / Home / Scan / Wardrobe / Settings / Try-on HUD)
+  → DeviceProfile (thermal / Low Power / iPhone quality)
   → GarmentStore (Documents/Garments/<uuid>/{front.png, back.png, meta.json})
   → ARClothHostController (ARView, light estimate, snapshot)
       → BodyCapsuleRig (capsules + chest/hip ellipsoids + upper-arm capsules)
@@ -127,6 +129,18 @@ Explicit methods (no unnamed magic):
 - `setPinMode` / `setSizeScale` / `setFit` / `setBodyScale` / `setArmCapsules`
 
 XPBD stretch: `Δλ = (−C − α̃ λ) / (w + α̃)`, `α̃ = α / Δt²`. `α = 0` is a hard constraint. Shear and bend remain classic PBD.
+
+## iPhone
+
+Universal iPhone + iPad (`TARGETED_DEVICE_FAMILY = 1,2`, `UIRequiresFullScreen`). Cream/ink/gold and boxy 44 pt controls stay. Physics stays on `com.junholee.Fitty.pbd`. Policy lives in `DeviceProfile.swift`.
+
+- **Default quality:** iPhone Low 16×20, iPad Med 24×32. Settings can still raise it. `DeviceProfile.effectiveQuality` then applies thermal / Low Power / slow-sim step-down.
+- **Thermal + Low Power:** fair/serious/critical or Low Power Mode drops quality one step, caps wind, turns off self-collision, and skips ReplayKit. Toast once. If sim Hz stays under ~25, quality drops one more step once per session unless the user locked quality.
+- **Background:** `scenePhase` + `UIApplication` notifications pause the C++ solver and the AR session. Foreground resumes tracking.
+- **Textures:** GPU albedo max 1024 px on iPhone, 2048 on iPad (`ImageIOSupport.cappedForTexture`). Disk PNGs still cap at 1600.
+- **Layout:** try-on hides the nav bar. Bottom HUD starts collapsed (size + snapshot/record/scan) and expands for fabric/fit/wind. Home primary actions sit in the thumb zone. Scan shutter is a 64 pt boxy button at the bottom.
+- **AR camera:** cheapest `ARBodyTrackingConfiguration` video format with at least 30 fps; CADisplayLink preferred range 30–60. Camera grain / DoF / grounding shadows off.
+- **Copy:** EN + KO in `L10n.swift` and `en.lproj` / `ko.lproj`. Settings shows live quality, thermal state, and Low Power.
 
 ## How to run — Simulator vs device
 
