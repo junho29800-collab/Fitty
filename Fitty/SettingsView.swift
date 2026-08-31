@@ -2,11 +2,25 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var settings: AppSettings
+    @EnvironmentObject var device: DeviceProfile
+    @EnvironmentObject var auth: AuthStore
 
     var body: some View {
         ZStack {
             FittyTheme.canvas.ignoresSafeArea()
             List {
+                Section {
+                    if let mail = auth.sessionEmail {
+                        Text("\(L10n.t(\"settings.signedIn\")) \(mail)")
+                            .font(.system(.subheadline, design: .default))
+                            .foregroundStyle(FittyTheme.ink)
+                    }
+                    Button(L10n.t("auth.logout")) {
+                        auth.logOut()
+                    }
+                    .accessibilityLabel(L10n.t("a11y.logout"))
+                } header: { Text(L10n.t("auth.logout")) }
+
                 Section {
                     Picker(L10n.t("settings.quality"), selection: $settings.quality) {
                         ForEach(SimQuality.allCases) { q in
@@ -14,10 +28,27 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityLabel(L10n.t("settings.quality"))
+                    .onChange(of: settings.quality) { _, _ in
+                        device.noteUserQualityOverride()
+                    }
                     Text(L10n.t("settings.qualityHint"))
                         .font(.system(.caption, design: .default))
                         .foregroundStyle(FittyTheme.mutedInk)
-                } header: { Text(L10n.t("settings.quality")) }
+                    Text("\(L10n.t(\"settings.qualityLive\")): \(L10n.t(device.effectiveQuality(user: settings.quality).locKey))")
+                        .font(.system(.caption, design: .default))
+                        .foregroundStyle(FittyTheme.ink)
+                    Text("\(L10n.t(\"settings.thermal\")): \(L10n.t(device.thermalLabelKey))")
+                        .font(.system(.caption, design: .default))
+                        .foregroundStyle(FittyTheme.ink)
+                    if device.isLowPower {
+                        Text(L10n.t("settings.lowPower"))
+                            .font(.system(.caption, design: .default).weight(.semibold))
+                            .foregroundStyle(FittyTheme.ink)
+                    }
+                    Text(L10n.t("settings.iphonePerfBody"))
+                        .font(.system(.caption, design: .default))
+                        .foregroundStyle(FittyTheme.mutedInk)
+                } header: { Text(L10n.t("settings.iphonePerf")) }
 
                 Section {
                     Toggle(L10n.t("settings.haptics"), isOn: $settings.hapticsEnabled)
@@ -60,7 +91,7 @@ struct SettingsView: View {
                         } else {
                             shown = "\(settings.heightCm) cm"
                         }
-                        return Text("\(L10n.t("settings.height"))  \(shown)")
+                        return Text("\(L10n.t(\"settings.height\"))  \(shown)")
                     }
                     .accessibilityLabel(L10n.t("settings.height"))
                     Text(L10n.t("settings.heightHint"))
@@ -76,7 +107,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Text("\(L10n.t("settings.version")) \(settings.appVersion)")
+                    Text("\(L10n.t(\"settings.version\")) \(settings.appVersion)")
                         .font(.system(.footnote, design: .default))
                         .foregroundStyle(FittyTheme.mutedInk)
                         .frame(maxWidth: .infinity)
