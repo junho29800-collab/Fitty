@@ -2,6 +2,8 @@
 
 Plain C++ (no XCTest, no Apple frameworks). Run on Linux or macOS with g++.
 
+From the repo root:
+
 ```
 g++ -std=c++17 -O2 -IFitty/Physics \
     Fitty/Physics/ClothSolver.cpp \
@@ -10,10 +12,6 @@ g++ -std=c++17 -O2 -IFitty/Physics \
 /tmp/cloth_tests
 ```
 
-From the repo root:
+Last run (Debian, g++ 14.2, 2026-08-31 NZST): **51 passed, 0 failed**.
 
-```
-g++ -std=c++17 -O2 -IFitty/Physics Fitty/Physics/ClothSolver.cpp Tests/ClothSolverTests.cpp -o /tmp/cloth_tests && /tmp/cloth_tests
-```
-
-Expected: **20 passed, 0 failed**.
+These tests are **not** in the iOS target.

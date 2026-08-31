@@ -27,7 +27,7 @@ fitty::Vec3 load3(const float *p) {
 }
 
 - (void)updateCapsulesWithData:(const float *)data count:(int)count {
-    if (_solver == nullptr || data == nullptr || count <= 0) return;
+    if (_solver == nullptr) return;
     try {
         _solver->setCapsules(data, count);
     } catch (...) {
@@ -38,6 +38,106 @@ fitty::Vec3 load3(const float *p) {
     if (_solver == nullptr) return;
     try {
         _solver->setPhotoAspect(aspect);
+    } catch (...) {
+    }
+}
+
+- (void)setConfigWithMass:(float)mass
+                  damping:(float)damping
+                  stretch:(float)stretch
+                    shear:(float)shear
+                     bend:(float)bend
+                 friction:(float)friction {
+    if (_solver == nullptr) return;
+    try {
+        fitty::ClothConfig c = _solver->config();
+        c.particleMass = mass;
+        c.damping = damping;
+        c.structuralStiffness = stretch;
+        c.shearStiffness = shear;
+        c.bendStiffness = bend;
+        c.collisionFriction = friction;
+        _solver->setConfig(c);
+    } catch (...) {
+    }
+}
+
+- (void)setWindX:(float)x y:(float)y z:(float)z {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setWind(fitty::Vec3{x, y, z});
+    } catch (...) {
+    }
+}
+
+- (void)setXPBDCompliance:(float)alpha {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setXPBDCompliance(alpha);
+    } catch (...) {
+    }
+}
+
+- (void)enableSelfCollision:(BOOL)on {
+    if (_solver == nullptr) return;
+    try {
+        _solver->enableSelfCollision(on ? true : false);
+    } catch (...) {
+    }
+}
+
+- (void)setVolumeEllipsoidsWithData:(const float *)data count:(int)count {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setVolumeEllipsoids(data, count);
+    } catch (...) {
+    }
+}
+
+- (void)setArmCapsulesWithData:(const float *)data count:(int)count {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setArmCapsules(data, count);
+    } catch (...) {
+    }
+}
+
+- (void)setQualityWidth:(int)width height:(int)height spacing:(float)spacing {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setQuality(width, height, spacing);
+    } catch (...) {
+    }
+}
+
+- (void)setPinMode:(int)mode {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setPinMode(static_cast<fitty::PinMode>(mode));
+    } catch (...) {
+    }
+}
+
+- (void)setSizeScale:(float)scale {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setSizeScale(scale);
+    } catch (...) {
+    }
+}
+
+- (void)setFitLength:(float)length tightness:(float)tightness drape:(float)drape {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setFit(length, tightness, drape);
+    } catch (...) {
+    }
+}
+
+- (void)setBodyScale:(float)scale {
+    if (_solver == nullptr) return;
+    try {
+        _solver->setBodyScale(scale);
     } catch (...) {
     }
 }
