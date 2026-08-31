@@ -1,26 +1,79 @@
 # Fitty
 
-True-physics AR clothing fitter prototype. Scan a real garment, capture a 3D body with ARKit, then drape that photo onto a C++ Position Based Dynamics (PBD) cloth sheet in real time.
+True-physics AR clothing fitter. Scan a real garment (front, optional back), keep a wardrobe of up to 30 pieces on this device, and drape the photo on a C++ PBD/XPBD cloth sheet over ARKit body tracking.
 
-There is no catalog, account system, or networking. Physics never runs on the main thread.
+There is no catalog of other people's clothes, no accounts, no networking, and no payments. Physics never runs on the main thread (`com.junholee.Fitty.pbd`).
 
-The project was authored on Linux and **has not been compiled on a Mac**. Open it in Xcode 16+ and build on a device. Simulator uses PHPicker + a T-pose debug rig so scan → try-on is still exerciseable.
+The project was authored on Linux and **has not been compiled on a Mac**. Open `Fitty.xcodeproj` in Xcode 16+ (iOS 18 SDK, deployment 17.0), pick a development team, and build. Simulator: Home → Scan → **Choose photo** → kind picker → Try on (T-pose debug rig).
+
+**Version 0.2.0.**
 
 ## Product flow
 
 ```
 Home (cream canvas)
-  ├─ Scan clothing  → camera viewfinder / Choose photo (PHPicker)
-  │                    Vision subject lift → confirm → Documents/Garments/<uuid>/
-  └─ Try on         → AR body tracking + PBD sheet textured with front.png
-                      (or a woven default if nothing has been scanned yet)
+  ├─ Onboarding (first launch, 3 boxy pages, skip / don't show again)
+  ├─ Scan clothing  → camera / PHPicker, optional 3-2-1, front then optional back
+  │                    Vision subject lift → kind picker → Documents/Garments/<uuid>/
+  ├─ Wardrobe       → select, rename, notes, kind, delete, sort, Front / Front+Back badge
+  ├─ Settings       → quality, haptics, units, language, debug, fabric default, height
+  └─ Try on         → AR + PBD/XPBD, fabric / size / wind / fit, snapshot, ReplayKit clip, A/B
 ```
 
-**Home.** Wordmark, one-line subtitle, boxy primary **Scan clothing**, boxy secondary **Try on** (labelled **Try on (no scan yet)** until a garment exists — still starts the physics demo). Square thumbnail of the last scan when present.
+## 25 big features
 
-**Scan.** Boxy camera viewfinder with a rectangular reticle. Instruction: lay the garment flat, fill the frame, front side up. Boxy shutter. Boxy **Choose photo** presents `PHPickerViewController` (images only) — this is the Simulator path. After capture, `VNGenerateForegroundInstanceMaskRequest` lifts the subject; `VNInstanceMaskObservation.generateMaskedImage(ofInstances:from:croppedToInstancesExtent:)` returns a transparent-background PNG. If lift fails, the full frame is used and the user can still confirm. Persist `Documents/Garments/<uuid>/{front.png, meta.json}`.
+| # | Feature | Where |
+| --- | --- | --- |
+| 1 | Wardrobe of saved garments, select for try-on, persist `Documents/Garments` | `GarmentStore.swift`, `WardrobeView.swift` |
+| 2 | Front + back scan. Try-on uses an atlas in U + duplicated reversed triangles (`faceCulling = .back`). RealityKit PBR cannot bind different textures per face, so this is the documented path — not two-sided PBR. | `ScanView.swift`, `ClothMeshEntity.swift`, `ImageIOSupport.swift` |
+| 3 | Kinds tee / tank / hoodie / dress / pants. Pinning: tee/hoodie shoulder row; pants hip row kinematic; dress shoulders + longer V; tank narrower U. Picker on scan confirm. | `AppSettings.swift` (`GarmentKind`), `ClothSolver.cpp` (`PinMode`), `ScanView.swift` |
+| 4 | Fabric presets cotton / silk / denim / knit / linen → C++ mass/damping/stretch/shear/bend/friction/XPBD α **and** Swift PBR roughness/metallic. Settings + try-on HUD. | `AppSettings.swift` (`FabricPreset`), `ClothSimulationComponent.swift`, `ContentView.swift` |
+| 5 | Size XS–XXL uniform scale on rest width/length (clamped). HUD segmented control. | `GarmentSize`, `ClothSolver::setSizeScale`, `ContentView.swift` |
+| 6 | XPBD stretch with compliance α so stiffness is less iteration-count dependent. Shear/bend stay classic PBD. Documented in `ClothSolver.hpp`. | `ClothSolver.cpp` `projectDistanceConstraints` |
+| 7 | World-space wind + mild hash noise, Verlet acceleration. HUD slider + direction. | `ClothSolver::setWind`, `ContentView.swift` |
+| 8 | Self-collision spatial hash; non-adjacent particles closer than 0.7×spacing are separated. Skipped if count > 1600. | `ClothSolver::collideSelf` |
+| 9 | Chest + hip volume ellipsoids in addition to bone capsules, from `BodyCapsuleRig`. | `BodyCapsuleRig.volumeEllipsoids`, `ClothSolver::setVolumeEllipsoids` |
+| 10 | Arm pins: side-column particles softly attracted to upper-arm capsules. Sleeve approximation, not a second mesh (commented in the solver). | `ClothSolver::applyArmPins` |
+| 11 | ARKit light estimate → directional light + slight PBR emissive. Simulator fallback 1400 white. | `ARViewController.swift` `applyLightEstimate` |
+| 12 | Snapshot: boxy button → `ARView.snapshot` → `Documents/Snapshots` → share sheet. No Photo Library write. | `ContentView.swift`, `ARClothHostController.handleSnapshot` |
+| 13 | Compare A/B with ≥2 garments, swaps texture + aspect + kind without leaving AR. | `ContentView.swapAB` |
+| 14 | Fit sliders length (V), tightness (U / stretch), drape (bend). Live on the sim thread. | `ClothSolver::setFit`, `ContentView.swift` |
+| 15 | Onboarding, 3 boxy pages (Scan flat / Stand in frame / Drape). Skip + UserDefaults. | `OnboardingView.swift`, `FittyApp.swift` |
+| 16 | Settings: quality, haptics, units, language, debug overlay, reset onboarding, fabric default. | `SettingsView.swift`, `AppSettings.swift` |
+| 17 | Sim quality Low 16×20 / Med 24×32 / High 32×40. Rebuilds solver + mesh (entity swap on main; solver on `com.junholee.Fitty.pbd`). | `SimQuality`, `ClothSimulationComponent.rebuildQualityOnSimThread` |
+| 18 | English + Korean via `L10n.swift` + `en.lproj` / `ko.lproj`. Device language, in-app override. | `L10n.swift`, `AppSettings.language` |
+| 19 | VoiceOver labels, Dynamic Type on menus, Reduce Motion skips flash/countdown animation. | Scan / Home / Settings / HUD |
+| 20 | Camera-denied screen with Open Settings; Vision fail still confirms full frame; disk-full toast. | `ScanView.swift`, `GarmentIsolator.swift`, `GarmentStore.swift` |
+| 21 | ReplayKit `RPScreenRecorder.startRecording`, ~8 s, share via preview. Mic off. Permission deny toast. | `ClipRecorder.swift` |
+| 22 | Height calibration 150–200 cm stepper. Scales capsule radii and rest garment size. Persisted. | `AppSettings.heightCm`, `BodyCapsuleRig` scale, `setBodyScale` |
+| 23 | Debug overlay toggle: capsule proxies + sim Hz + particle count + quality. Off by default. | `AppSettings.debugOverlay`, `ARClothHostController.setDebugVisible` |
+| 24 | Persistence: settings + last selected garment + last fabric/size survive cold start. | `AppSettings`, `GarmentStore.selectedID` |
+| 25 | Garment metadata editor: kind, notes, date; used at try-on. | `GarmentEditorView`, `WardrobeView.swift` |
 
-**Try on.** Existing AR session + PBD. `front.png` is UV-mapped onto the simulated sheet (`u` across columns, `v` shoulder → hip) via `ClothMeshEntity.applyTexture`. Optional photo-aspect scaling widens a shirt or lengthens a tunic without changing rest lengths. HUD is a cream panel at ~0.92 opacity with ink text. Boxy **Rescan**.
+## 20 small updates
+
+| # | Update | Where |
+| --- | --- | --- |
+| S1 | App icon: cream field, boxy gold “F”, 1024 PNG | `Assets.xcassets/AppIcon.appiconset` |
+| S2 | Cream launch screen (`UILaunchScreen` + `LaunchBackground`) | `Info.plist`, `LaunchBackground.colorset` |
+| S3 | Empty wardrobe illustration + copy (not lorem) | `WardrobeView.swift` |
+| S4 | Delete garment with confirm | `WardrobeView.swift` |
+| S5 | Rename garment | `WardrobeView.swift` |
+| S6 | Sort wardrobe newest / name | `WardrobeView.swift`, `AppSettings.wardrobeSort` |
+| S7 | Haptics on shutter, confirm, snapshot (honours settings) | `Haptics.swift` |
+| S8 | Optional 3-2-1 scan countdown | `ScanView.swift`, settings |
+| S9 | Reticle corner ticks (boxy L shapes) | `FittyTheme.ReticleTicks` |
+| S10 | Transient toast for errors/success | `ToastCenter.swift` |
+| S11 | Version 0.2.0 in plist + settings footer | `project.pbxproj` `MARKETING_VERSION`, `SettingsView` |
+| S12 | `.gitignore` xcuserdata, DerivedData, `.DS_Store` | `.gitignore` |
+| S13 | PNG/JPEG size cap on save (max dim 1600, ~1.4 MB) | `ImageIOSupport.swift` |
+| S14 | Wardrobe cap 30; oldest evicted with notice | `GarmentStore.maxCount` |
+| S15 | HUD respects safe area + landscape | `ContentView.swift` `GeometryReader` |
+| S16 | Status bar dark content on cream; hidden on AR | `Info.plist`, `ARClothHostController.prefersStatusBarHidden` |
+| S17 | Boxy button pressed state dim 0.85 | `BoxyButtonStyle` |
+| S18 | Thumbnail badge Front / Front+Back | `HomeView`, `WardrobeView` |
+| S19 | Rescan from try-on keeps the wardrobe entry (updates photos) vs **New garment** | `ScanView.rescanID`, `GarmentStore.updatePhotos` |
+| S20 | This README | `README.md` |
 
 ## Theme
 
@@ -33,86 +86,58 @@ Home (cream canvas)
 | accent | (0.82, 0.68, 0.22) | muted gold, primary fill / reticle |
 | panel | canvas @ 0.92 | HUD over AR passthrough |
 
-Buttons: `RoundedRectangle(cornerRadius: 2)`, 2 pt ink or accent stroke. No `Capsule`, no corner radius 14+. System font, not rounded design.
+Buttons: `RoundedRectangle(cornerRadius: 2)`, 2 pt ink or accent stroke, pressed opacity 0.85. No `Capsule`, no corner radius 14+. System font.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph ui [SwiftUI]
-    Home[HomeView]
-    Scan[ScanView / PHPicker / camera]
-    Store[GarmentStore]
-    App[Try-on ContentView]
-    HUD[Tracking status · sim Hz]
-  end
-  subgraph ar [RealityKit + ARKit]
-    Host[ARClothHostController]
-    ARView[ARView passthrough]
-    Body[ARBodyAnchor / ARSkeleton3D]
-    Capsules[BodyCapsuleRig]
-    Mesh[ClothMeshEntity PBR + albedo]
-  end
-  subgraph sim [Background serial queue]
-    Comp[ClothSimulationComponent]
-    Bridge[ClothSolverBridge.mm]
-    PBD["ClothSolver.cpp PBD"]
-  end
-  Home --> Scan
-  Scan --> Store
-  Home --> App
-  Store -->|front.png| Mesh
-  App --> Host
-  Host --> ARView
-  ARView --> Body
-  Body --> Capsules
-  Capsules --> Comp
-  Comp -->|"never on main"| Bridge
-  Bridge --> PBD
-  PBD -->|positions + normals| Comp
-  Comp -->|"main / render thread"| Mesh
-  Mesh --> ARView
-  HUD --- App
+```
+SwiftUI (Home / Scan / Wardrobe / Settings / Try-on HUD)
+  → GarmentStore (Documents/Garments/<uuid>/{front.png, back.png, meta.json})
+  → ARClothHostController (ARView, light estimate, snapshot)
+      → BodyCapsuleRig (capsules + chest/hip ellipsoids + upper-arm capsules)
+      → ClothSimulationComponent
+            serial queue com.junholee.Fitty.pbd
+              ClothSolverBridge.mm → ClothSolver.cpp (PBD + XPBD stretch)
+            main/render thread ← positions/normals → ClothMeshEntity (PBR + atlas)
 ```
 
-**Unit system:** meters and seconds, ARKit world space (Y-up, right-handed). Joints are converted with `bodyAnchor.transform * skeleton.modelTransform(for:)` — model-space, not parent-local. Gravity is `(0, -9.81, 0)` m/s².
+**Units:** meters, seconds, ARKit world space (Y-up). Joints: `bodyAnchor.transform * skeleton.modelTransform(for:)`. Gravity `(0, -9.81, 0)`.
 
-**Threading:** ARKit / RealityKit produce poses on their queues. `ClothSimulationComponent` copies packed floats into preallocated buffers, then `DispatchQueue(label: "com.junholee.Fitty.pbd")` runs Verlet + constraint projection. Vertex upload hops back to the main/render thread. Subject lifting runs on a `userInitiated` background queue. The C++ solver is not thread-safe and is only touched from the PBD serial queue.
+**Threading:** the C++ solver is touched only from `com.junholee.Fitty.pbd`. Vertex upload and RealityKit stay on the main/render thread. Vision subject lift runs on a `userInitiated` queue. No C++ exceptions cross the bridge.
 
-## How to open in Xcode
+**Scan isolation (unchanged, required types):**
 
-1. Clone `junho29800-collab/Fitty` and check out `feat/ar-cloth-scaffolding` (or merge the PR).
-2. Open `Fitty.xcodeproj` in **Xcode 16 or newer** (iOS 18 SDK). Deployment target is iOS 17.0; `LowLevelMesh` is compiled behind `#available(iOS 18.0, *)`.
-3. Select the **Fitty** scheme, pick a development team under Signing & Capabilities (bundle id `com.junholee.Fitty`).
-4. Run on a physical iPhone or iPad. Simulator: Home → Scan → **Choose photo** → Use this → Try on (T-pose debug hull).
+- `VNGenerateForegroundInstanceMaskRequest`
+- Result `as? VNInstanceMaskObservation`
+- `generateMaskedImage(ofInstances:from:croppedToInstancesExtent:)`
+- Fallback: full original frame; user can still confirm
+- PHPicker stays permission-free (no `NSPhotoLibraryUsageDescription`)
 
-## Device requirements
+## Physics / bridge
 
-| Path | Requirement |
-| --- | --- |
-| Live body tracking | **A12 Bionic or newer** iPhone / iPad with a rear camera. `ARBodyTrackingConfiguration.isSupported` is checked at runtime. |
-| Scan camera | Rear camera. `NSCameraUsageDescription` covers scanning clothing **and** body AR. |
-| Photo picker | `PHPickerViewController`, images only. **No** `NSPhotoLibraryUsageDescription` — PHPicker does not need it. |
-| Simulator / unsupported hardware | App still runs. Scan uses Choose photo. ARView switches to `.nonAR`, a standing T-pose capsule rig is spawned ~2 m along −Z, and the PBD solver drapes the garment on that hull. |
+Explicit methods (no unnamed magic):
 
-`UIRequiredDeviceCapabilities` lists `arm64` only (not `arkit`) so the Simulator debug path remains installable.
+- `setConfig(mass:damping:stretch:shear:bend:friction:)`
+- `setPhotoAspect`
+- `setWind(x:y:z:)`
+- `setXPBDCompliance`
+- `enableSelfCollision`
+- `setVolumeEllipsoids` (12 floats: center, radii, U, V)
+- `setQuality(width:height:spacing:)` (Swift may also reconstruct)
+- `setPinMode` / `setSizeScale` / `setFit` / `setBodyScale` / `setArmCapsules`
 
-## Physics (what is actually implemented)
+XPBD stretch: `Δλ = (−C − α̃ λ) / (w + α̃)`, `α̃ = α / Δt²`. `α = 0` is a hard constraint. Shear and bend remain classic PBD.
 
-Regular **24×32** particle grid, rest spacing **1.8 cm**, particle mass 0.02 kg.
+## How to run — Simulator vs device
 
-Each `step(dt)` splits into 2 substeps (dt clamped to ≤ 1/30 s) and 12 Gauss–Seidel iterations:
+1. Open `Fitty.xcodeproj`, scheme **Fitty**, bundle id `com.junholee.Fitty`.
+2. Signing: pick a team (`DEVELOPMENT_TEAM` is empty).
+3. **Device (A12+ iPhone/iPad):** live `ARBodyTrackingConfiguration`. Grant camera. Stand in frame. Optional height calibration in Settings.
+4. **Simulator:** overlay explains the fallback. Scan uses **Choose photo**. Try-on uses a standing T-pose capsule + ellipsoid rig ~2 m along −Z. Debug overlay (Settings) shows capsule proxies.
 
-1. **Verlet** integrate with gravity. Velocity is implicit `(x - x_prev)`; a small damping factor bleeds energy so the sheet settles instead of ringing.
-2. **Structural** distance constraints (grid edges) — warp/weft. Stiffness 1.0.
-3. **Shear** constraints (cell diagonals). Stiffness 0.85.
-4. **Bending** skip-one springs. Stiffness 0.35.
-5. **Capsule collision.** If a dynamic particle is inside a capsule (segment + radius), it is pushed to the surface along the shortest vector. Tangential motion is damped (friction 0.35).
-6. Kinematic **top row** follows the shoulder line every frame.
+## How to run C++ tests
 
-`initializeGarment` places the patch from left/right shoulders and hips, offset toward the camera. `setPhotoAspect(width/height)` optionally grows the patch (clamped to 1.6×) so a wide shirt is not a square. Rest lengths stay at construction spacing.
-
-## Linux C++ tests (run, not faked)
+From the repo root (Linux or macOS, no Xcode required):
 
 ```
 g++ -std=c++17 -O2 -IFitty/Physics \
@@ -122,52 +147,25 @@ g++ -std=c++17 -O2 -IFitty/Physics \
 /tmp/cloth_tests
 ```
 
-Last run (Debian, g++ 14.2, 2026-08-31): **20 passed, 0 failed**.
+Last run (Debian, g++ 14.2, 2026-08-31 NZST): **51 passed, 0 failed**.
 
-Coverage: 24×32 construct; T-pose init (shoulders ~0.4 m, hips ~0.3 m); 120 frames at 1/60 s with a standing capsule torso — no NaN/Inf, bbox extent 0.526 m (< 3 m), 741/768 particles stay above hip y=0.95, hem y ≥ 0.924; a particle planted inside a capsule is at radius after `step`; wide photo aspect grows shoulder span 0.480 m → 0.768 m without exploding.
+Coverage includes: no NaN over 120 steps; capsule push-out; volume ellipsoid push-out; self-collision separation; wind moves COM; XPBD stable at dt=1/30; size/aspect finite bbox; denim vs silk different stretch; pants pinning finite; tank narrower / dress longer; quality rebuild 16×20 and 32×40; arm pins finite.
 
-These tests are **not** in the iOS target.
+Tests live in `Tests/` and are **not** in the iOS target.
 
-## Project layout
+## Known gaps
 
-```
-Fitty.xcodeproj/          Xcode 16 project, C++17 + libc++, bridging header
-Fitty/
-  FittyApp.swift          NavigationStack: Home → Scan / Try On
-  FittyTheme.swift        canvas / ink / accent, boxy buttons
-  HomeView.swift
-  ScanView.swift
-  ContentView.swift       Try-on HUD
-  GarmentStore.swift      Documents/Garments/<uuid>
-  GarmentIsolator.swift   Vision subject lift
-  PhotoPicker.swift       PHPicker, images only
-  CameraCapture.swift     AVFoundation stills
-  ARViewController.swift  UIViewControllerRepresentable + AR host
-  ClothSimulationComponent.swift
-  BodyCapsuleRig.swift
-  ClothMeshEntity.swift   applyTexture(UIImage) + LowLevelMesh / MeshDescriptor
-  SimulationStatus.swift
-  Fitty-Bridging-Header.h
-  Info.plist
-  Assets.xcassets/
-  Physics/
-    ClothSolver.hpp / .cpp
-    ClothSolverBridge.h / .mm
-Tests/
-  ClothSolverTests.cpp
-  README.md
-```
-
-## API risks / TODOs for a Mac pass
-
-- `TextureResource.generate(from:withName:options:)` is the sync iOS 15+ API. Some iOS 18 pages list an `async` `generate(from:named:options:)`. If the installed SDK only exposes async, wrap in a `Task` on the main/render thread.
-- RealityKit UV origin (top-left vs Metal bottom-left) may flip the albedo vertically. UVs are `v` down rows (shoulder → hip) matching photo top → bottom **if** the mesh sampler is top-left.
-- `PhysicallyBasedMaterial.blending = .transparent(opacity: .init(scale:texture:))` uses the PNG alpha as opacity. If a given SDK’s `Opacity` init differs, keep `.transparent(opacity: .init(floatLiteral: 1.0))`.
-- `VNGenerateForegroundInstanceMaskRequest` is iOS 17+ (WWDC23). Simulator may have weaker subject-lift models — the confirm screen still accepts the full frame.
-- `MeshResource(from: LowLevelMesh)` sync vs async, `LowLevelMesh.Attribute.Semantic.uv0`, `Entity.init()` isolation — same notes as the scaffold.
-- Capsules are an inner hull; chest/hip volume may still clip.
-- Signing: `DEVELOPMENT_TEAM` is empty. Pick a team in Xcode.
-- Classic PBD stiffness is iteration-dependent, not a Young’s modulus.
+- No Mac/Xcode/device build on this branch.
+- Signing: `DEVELOPMENT_TEAM` empty.
+- `TextureResource.generate(from:withName:options:)` vs async on some iOS 18 SDKs — wrap in a `Task` if needed.
+- RealityKit UV origin may flip albedo vertically.
+- `PhysicallyBasedMaterial.emissiveColor` / `Opacity.init(scale:texture:)` may differ by SDK.
+- Vision subject lift is weaker in Simulator; confirm still accepts the full frame.
+- Capsules + two ellipsoids are still an inner hull; fitted dresses can clip.
+- Arm pins are a sleeve approximation, not a second mesh.
+- ReplayKit records the whole screen (system HUD included), not an isolated ARView framebuffer.
+- Classic PBD shear/bend stiffness is still iteration-count dependent; only stretch is XPBD.
+- `MeshResource(from: LowLevelMesh)` sync vs async, `Entity.init()` isolation — same notes as the scaffold.
 
 ## License
 
