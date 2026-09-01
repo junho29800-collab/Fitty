@@ -1,4 +1,4 @@
-# Fitty
+# Fitty BETA
 
 True-physics AR clothing fitter. Scan a real garment (front, optional back), keep a wardrobe of up to 30 pieces on this device, and drape the photo on a C++ PBD/XPBD cloth sheet over ARKit body tracking.
 
@@ -6,7 +6,7 @@ There is no catalog of other people’s clothes, no networking, no payments, and
 
 The project was authored on Linux and **has not been compiled on a Mac**. Open `Fitty.xcodeproj` in Xcode 16+ (iOS 18 SDK, deployment 17.0), pick a development team, and build. Simulator: Onboarding (if needed) → Home → Scan → **Choose photo** → kind picker → Try on (T-pose debug rig). Try on is disabled until a garment is scanned.
 
-**Version 0.2.0.**
+**Version 0.2.0. Beta**
 
 ## Product flow
 
