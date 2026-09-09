@@ -4,7 +4,7 @@ True-physics AR clothing fitter. Scan a real garment (front, optional back), kee
 
 There is no catalog of other people’s clothes, no networking, no payments, and no accounts. Physics never runs on the main thread (`com.junholee.Fitty.pbd`).
 
-The project was authored on Linux and **has not been compiled on a Mac**. Open `Fitty.xcodeproj` in Xcode 16+ (iOS 18 SDK, deployment 17.0), pick a development team, and build. Simulator: Onboarding (if needed) → Home → Scan → **Choose photo** → kind picker → Try on (T-pose debug rig). Try on is disabled until a garment is scanned.
+The project was authored on Linux and **has not been compiled on a Mac** (but it's working so far... Tested on iPhone 17 Pro and 16Pro). Open `Fitty.xcodeproj` in Xcode 16+ (iOS 18 SDK, deployment 17.0), pick a development team, and build. Simulator: Onboarding (if needed) → Home → Scan → **Choose photo** → kind picker → Try on (T-pose debug rig). Try on is disabled until a garment is scanned.
 
 **Version 0.2.0. Beta**
 
