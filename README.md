@@ -183,4 +183,4 @@ Tests live in `Tests/` and are **not** in the iOS target.
 
 ## License
 
-Private prototype. All rights reserved.
+Honestly do what ever you guys want to do with this
